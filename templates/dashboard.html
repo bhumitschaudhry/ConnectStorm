@@ -10,42 +10,35 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
         }
-        
         .container {
             max-width: 1200px;
             margin: 0 auto;
         }
-        
         header {
             text-align: center;
             color: white;
             margin-bottom: 40px;
         }
-        
         h1 {
             font-size: 42px;
             margin-bottom: 10px;
         }
-        
         .subtitle {
             font-size: 16px;
             opacity: 0.9;
         }
-        
         .metrics-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
         }
-        
         .metric-card {
             background: white;
             border-radius: 20px;
@@ -53,12 +46,10 @@
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
-        
         .metric-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
         }
-        
         .metric-label {
             color: #666;
             font-size: 14px;
@@ -67,19 +58,16 @@
             letter-spacing: 1px;
             margin-bottom: 10px;
         }
-        
         .metric-value {
             font-size: 48px;
             font-weight: bold;
             color: #667eea;
             margin-bottom: 5px;
         }
-        
         .metric-description {
             color: #999;
             font-size: 13px;
         }
-        
         .timer-card {
             background: white;
             border-radius: 20px;
@@ -87,14 +75,12 @@
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
             text-align: center;
         }
-        
         .timer {
             font-size: 36px;
             font-weight: bold;
             color: #764ba2;
             margin-top: 10px;
         }
-        
         .status-indicator {
             display: inline-block;
             width: 12px;
@@ -104,17 +90,14 @@
             animation: pulse 2s infinite;
             margin-right: 8px;
         }
-        
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
-        
         .nav-links {
             text-align: center;
             margin-top: 30px;
         }
-        
         .nav-links a {
             display: inline-block;
             margin: 0 10px;
@@ -126,11 +109,9 @@
             font-weight: 600;
             transition: transform 0.2s ease;
         }
-        
         .nav-links a:hover {
             transform: translateY(-2px);
         }
-        
         .last-update {
             text-align: center;
             color: white;
@@ -138,7 +119,6 @@
             font-size: 12px;
             margin-top: 20px;
         }
-        
         .error-message {
             background: #f8d7da;
             color: #721c24;
@@ -158,89 +138,66 @@
                 Real-time metrics updating every second
             </p>
         </header>
-        
         <div id="errorMessage" class="error-message"></div>
-        
         <div class="metrics-grid">
             <div class="metric-card">
                 <div class="metric-label">Redis Queue</div>
                 <div class="metric-value" id="redisCount">-</div>
                 <div class="metric-description">Messages pending in stream</div>
             </div>
-            
             <div class="metric-card">
                 <div class="metric-label">TimescaleDB</div>
                 <div class="metric-value" id="timescaleCount">-</div>
                 <div class="metric-description">Total records processed</div>
             </div>
-            
             <div class="metric-card">
                 <div class="metric-label">Processing Rate</div>
                 <div class="metric-value" id="processingRate">-</div>
                 <div class="metric-description">Records per second</div>
             </div>
         </div>
-        
         <div class="timer-card">
             <div class="metric-label">Uptime</div>
             <div class="timer" id="timer">00:00:00</div>
         </div>
-        
         <div class="nav-links">
             <a href="/upload">Upload Files</a>
             <a href="/">Home</a>
         </div>
-        
         <div class="last-update">
             Last updated: <span id="lastUpdate">Never</span>
         </div>
     </div>
-    
     <script>
         let startTime = Date.now();
         let previousTimescaleCount = 0;
         let previousUpdateTime = Date.now();
-        
-        // Update timer every second
         function updateTimer() {
             const elapsed = Date.now() - startTime;
             const hours = Math.floor(elapsed / 3600000);
             const minutes = Math.floor((elapsed % 3600000) / 60000);
             const seconds = Math.floor((elapsed % 60000) / 1000);
-            
             document.getElementById('timer').textContent = 
                 `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
         }
-        
-        // Fetch counts from API
         async function fetchCounts() {
             try {
                 const response = await fetch('/api/counts');
-                const data = await response.json();
-                
+                const data = await response.json(); 
                 if (response.ok) {
-                    // Update counts
                     document.getElementById('redisCount').textContent = data.redis.toLocaleString();
                     document.getElementById('timescaleCount').textContent = data.timescale.toLocaleString();
-                    
-                    // Calculate processing rate
                     const currentTime = Date.now();
-                    const timeDiff = (currentTime - previousUpdateTime) / 1000; // seconds
+                    const timeDiff = (currentTime - previousUpdateTime) / 1000; 
                     const countDiff = data.timescale - previousTimescaleCount;
-                    
                     if (timeDiff > 0 && countDiff >= 0) {
                         const rate = (countDiff / timeDiff).toFixed(2);
                         document.getElementById('processingRate').textContent = rate;
                     }
-                    
                     previousTimescaleCount = data.timescale;
                     previousUpdateTime = currentTime;
-                    
-                    // Update last update time
                     const now = new Date();
                     document.getElementById('lastUpdate').textContent = now.toLocaleTimeString();
-                    
-                    // Hide error message if it was showing
                     document.getElementById('errorMessage').style.display = 'none';
                 } else {
                     throw new Error(data.error || 'Failed to fetch counts');
@@ -252,14 +209,8 @@
                 errorDiv.style.display = 'block';
             }
         }
-        
-        // Initial fetch
         fetchCounts();
-        
-        // Update timer every second
         setInterval(updateTimer, 1000);
-        
-        // Fetch counts every second
         setInterval(fetchCounts, 1000);
     </script>
 </body>
