@@ -81,7 +81,6 @@ def reset_timescale():
         print(f"  TimescaleDB reset failed: {e}")
         return False
 def main():
-    """Main reset function."""
     print("=" * 70)
     print("CONNECTSTORM RESET SCRIPT")
     print("=" * 70)
@@ -147,12 +146,6 @@ def main():
     if redis_success and timescale_success:
         if final_counts['redis_stream'] == 0 and final_counts['timescale_records'] == 0:
             print("SUCCESS: All systems reset successfully!")
-            print()
-            print("You can now:")
-            print("  1. Start fresh with new uploads")
-            print("  2. Run: python app.py")
-            print("  3. Run: python consumer.py")
-            print("  4. Upload files via http://localhost:8080/upload")
         else:
             print("WARNING: Systems not completely empty after reset")
     else:
