@@ -3,10 +3,10 @@ services:
   - type: web
     name: connectstorm-web
     env: python
-    region: singapore
-    plan: starter
+    region: oregon
+    plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 3 --threads 2 --timeout 90
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
     healthCheckPath: /health
     envVars:
       - key: FLASK_ENV
@@ -24,7 +24,7 @@ services:
       - key: S3_ENDPOINT
         sync: false
       - key: S3_REGION
-        value: auto
+        value: us-east-1
       - key: S3_BUCKET
         sync: false
       - key: S3_ACCESS_KEY
@@ -38,8 +38,8 @@ services:
   - type: worker
     name: connectstorm-consumer
     env: python
-    region: singapore
-    plan: starter
+    region: oregon
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: python consumer.py
     envVars:
@@ -52,7 +52,7 @@ services:
       - key: S3_ENDPOINT
         sync: false
       - key: S3_REGION
-        value: auto
+        value: us-east-1
       - key: S3_BUCKET
         sync: false
       - key: S3_ACCESS_KEY
@@ -62,19 +62,19 @@ services:
       - key: S3_PUBLIC_BASE_URL
         sync: false
       - key: CONSUMER_BATCH_SIZE
-        value: 20
+        value: 10
       - key: CONSUMER_BLOCK_MS
-        value: 3000
+        value: 5000
 
   # Selenium Worker
   - type: worker
     name: connectstorm-producer
     env: python
-    region: singapore
-    plan: starter
+    region: oregon
+    plan: free
     buildCommand: |
-      apt-get update && apt-get install -y wget gnupg unzip curl
-      wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
+      apt-get update && apt-get install -y wget gnupg unzip
+      wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -
       echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list
       apt-get update && apt-get install -y google-chrome-stable
       pip install -r requirements.txt
