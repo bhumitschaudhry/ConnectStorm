@@ -1,4 +1,4 @@
-# ⚡ File-Storm
+# ⚡ ConnectStorm
 
 A cloud-ready distributed file ingestion system using **Flask**, **Redis Streams**, **TimescaleDB**, **S3/R2**, and **Selenium**, designed for deployment on **Render Free Tier**.
 
@@ -6,7 +6,7 @@ A cloud-ready distributed file ingestion system using **Flask**, **Redis Streams
 
 ## 🎯 Overview
 
-File-Storm is a complete distributed file ingestion system that simulates real users uploading files to a web application. It demonstrates:
+ConnectStorm is a complete distributed file ingestion system that simulates real users uploading files to a web application. It demonstrates:
 
 - **Distributed Queue Processing** with Redis Streams
 - **Time-Series Data Storage** with TimescaleDB
@@ -47,22 +47,26 @@ File-Storm is a complete distributed file ingestion system that simulates real u
 ## 🚀 Features
 
 ### User-Facing Web Application
+
 - ✅ **Upload Page** - Simple HTML form for file uploads
 - ✅ **Dashboard** - Real-time metrics with auto-refresh
 - ✅ **REST API** - `/api/upload` and `/api/counts` endpoints
 
 ### Backend Infrastructure
+
 - ✅ **Redis Stream Queue** - Reliable message queue with consumer groups
 - ✅ **Consumer Worker** - Batch processing with XACK/XDEL
 - ✅ **TimescaleDB** - Time-series hypertable for file events
 - ✅ **S3/R2 Storage** - Object storage with fallback to local
 
 ### Automation & Testing
+
 - ✅ **Selenium Producer** - Headless Chrome automation
 - ✅ **Concurrent Users** - Multi-threaded upload simulation
 - ✅ **Real User Behavior** - Random delays and file selection
 
 ### Cloud Deployment
+
 - ✅ **Render Blueprint** - Infrastructure as code with `render.yaml`
 - ✅ **Free Tier Compatible** - Optimized for free hosting
 - ✅ **External Services** - Managed Redis, TimescaleDB, and S3
@@ -72,7 +76,7 @@ File-Storm is a complete distributed file ingestion system that simulates real u
 ## 📁 Project Structure
 
 ```
-file-storm/
+ConnectStorm/
 ├── app.py                  # Flask web application
 ├── consumer.py             # Redis Stream consumer worker
 ├── storage.py              # S3/R2/local storage handler
@@ -95,8 +99,8 @@ file-storm/
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/yourusername/file-storm.git
-cd file-storm
+git clone https://github.com/yourusername/ConnectStorm.git
+cd ConnectStorm
 ```
 
 ### 2. Install Dependencies
@@ -164,17 +168,17 @@ See **[deploy.md](deploy.md)** for complete deployment instructions.
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `FLASK_PORT` | Flask server port | `8080` |
-| `SECRET_KEY` | Flask secret key | `dev` |
-| `REDIS_URL` | Redis connection URL | `redis://localhost:6379` |
-| `PG_URI` | PostgreSQL connection URL | `postgres://...` |
-| `STORAGE_MODE` | Storage backend (`s3` or `local`) | `s3` |
-| `S3_BUCKET` | S3/R2 bucket name | - |
-| `PRODUCER_USERS` | Concurrent Selenium users | `5` |
-| `PRODUCER_REPEATS` | Uploads per user | `2` |
-| `CONSUMER_BATCH_SIZE` | Redis batch size | `10` |
+| Variable              | Description                       | Default                  |
+| --------------------- | --------------------------------- | ------------------------ |
+| `FLASK_PORT`          | Flask server port                 | `8080`                   |
+| `SECRET_KEY`          | Flask secret key                  | `dev`                    |
+| `REDIS_URL`           | Redis connection URL              | `redis://localhost:6379` |
+| `PG_URI`              | PostgreSQL connection URL         | `postgres://...`         |
+| `STORAGE_MODE`        | Storage backend (`s3` or `local`) | `s3`                     |
+| `S3_BUCKET`           | S3/R2 bucket name                 | -                        |
+| `PRODUCER_USERS`      | Concurrent Selenium users         | `5`                      |
+| `PRODUCER_REPEATS`    | Uploads per user                  | `2`                      |
+| `CONSUMER_BATCH_SIZE` | Redis batch size                  | `10`                     |
 
 ---
 
@@ -183,7 +187,7 @@ See **[deploy.md](deploy.md)** for complete deployment instructions.
 ### Check Redis Queue
 
 ```bash
-redis-cli -u $REDIS_URL XLEN filestorm:uploads
+redis-cli -u $REDIS_URL XLEN ConnectStorm:uploads
 ```
 
 ### Check Database Records
@@ -196,6 +200,7 @@ SELECT * FROM file_events ORDER BY event_time DESC LIMIT 10;
 ### View Dashboard
 
 Visit `/dashboard` to see:
+
 - Redis queue size
 - TimescaleDB record count
 - Processing rate (records/sec)
@@ -220,6 +225,7 @@ python selenium_producer.py
 ```
 
 This will:
+
 - Spawn 5 concurrent users (configurable)
 - Each uploads 2 random files from `files/`
 - Simulates real user behavior with delays
@@ -229,11 +235,13 @@ This will:
 ## 📈 Performance
 
 ### Render Free Tier Limits
+
 - **750 hours/month** per service
 - **512 MB RAM** per service
 - **0.1 CPU** per service
 
 ### Optimization Tips
+
 1. Keep `PRODUCER_USERS` between 3-5
 2. Use `CONSUMER_BATCH_SIZE=10-20`
 3. Add delays between uploads
@@ -255,16 +263,19 @@ This will:
 ## 🐛 Troubleshooting
 
 ### Web Service Won't Start
+
 - Check Redis and PostgreSQL connections
 - Verify schema.sql was applied
 - Check logs for Python errors
 
 ### Consumer Not Processing
+
 - Verify Redis Stream exists
 - Check consumer group is created
 - Test S3 credentials
 
 ### Selenium Fails
+
 - Ensure Chrome is installed
 - Use `PRODUCER_HEADLESS=true` on servers
 - Verify target URL is accessible
@@ -280,6 +291,7 @@ See **[deploy.md](deploy.md)** for detailed troubleshooting.
 Upload a file to the system.
 
 **Request:**
+
 ```
 Content-Type: multipart/form-data
 
@@ -288,6 +300,7 @@ uploader_id: "user_1" (optional)
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -303,6 +316,7 @@ uploader_id: "user_1" (optional)
 Get current system metrics.
 
 **Response:**
+
 ```json
 {
   "redis": 42,
@@ -346,10 +360,10 @@ MIT License - See LICENSE file for details
 ## 📞 Support
 
 For issues and questions:
-- **GitHub Issues**: [Create an issue](https://github.com/yourusername/file-storm/issues)
+
+- **GitHub Issues**: [Create an issue](https://github.com/yourusername/ConnectStorm/issues)
 - **Documentation**: See [deploy.md](deploy.md)
 
 ---
 
 **Built with ❤️ for distributed systems learning**
-

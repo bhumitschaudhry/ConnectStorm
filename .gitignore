@@ -35,6 +35,7 @@ ENV/
 .env.*.local
 .env.production
 .env.development
+local_producer_config.env
 
 # IDE
 .vscode/
@@ -151,4 +152,6 @@ docker-compose.override.yml
 *.tar
 *.tar.gz
 *.tgz
+
+consumer/
 

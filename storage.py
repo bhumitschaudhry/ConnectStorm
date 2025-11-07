@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-File-Storm Storage Handler
+ConnectStorm Storage Handler
 Supports local storage and S3-compatible storage (AWS S3, Cloudflare R2).
 """
 
 import os
+import tempfile
 import boto3
 from botocore.exceptions import ClientError
 from dotenv import load_dotenv
@@ -22,8 +23,13 @@ S3_ACCESS_KEY = os.getenv('S3_ACCESS_KEY')
 S3_SECRET_KEY = os.getenv('S3_SECRET_KEY')
 S3_PUBLIC_BASE_URL = os.getenv('S3_PUBLIC_BASE_URL', '')
 
-# Local storage configuration
-LOCAL_STORAGE_DIR = os.getenv('LOCAL_STORAGE_DIR', '/tmp/filestorm_storage')
+# Local storage configuration - use cross-platform temp directory
+local_storage_dir = os.getenv('LOCAL_STORAGE_DIR')
+if local_storage_dir:
+    LOCAL_STORAGE_DIR = local_storage_dir
+else:
+    # Use system temp directory (works on Windows, Linux, Mac)
+    LOCAL_STORAGE_DIR = os.path.join(tempfile.gettempdir(), 'connectstorm_storage')
 
 
 def get_s3_client():

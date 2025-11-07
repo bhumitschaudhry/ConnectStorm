@@ -38,6 +38,3 @@ SELECT add_continuous_aggregate_policy('file_events_hourly',
     schedule_interval => INTERVAL '1 hour',
     if_not_exists => TRUE
 );
-COMMIT;
-\d file_events
-

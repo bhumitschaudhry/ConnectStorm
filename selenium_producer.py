@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-File-Storm Selenium Producer
+ConnectStorm Selenium Producer
 Simulates real users uploading files using Selenium WebDriver.
 """
 
@@ -8,6 +8,7 @@ import os
 import sys
 import time
 import random
+import logging
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from selenium import webdriver
@@ -17,6 +18,10 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from dotenv import load_dotenv
+
+# Suppress Selenium and urllib3 logging
+logging.getLogger('selenium').setLevel(logging.WARNING)
+logging.getLogger('urllib3').setLevel(logging.WARNING)
 
 load_dotenv()
 
@@ -31,27 +36,61 @@ PRODUCER_HEADLESS = os.getenv('PRODUCER_HEADLESS', 'true').lower() == 'true'
 def get_chrome_driver():
     """
     Create and configure Chrome WebDriver.
+    Auto-detects platform and applies appropriate settings.
     """
     chrome_options = Options()
     
     if PRODUCER_HEADLESS:
         chrome_options.add_argument('--headless=new')  # New headless mode
     
-    # Additional options for stability (especially on Render)
-    chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument('--disable-dev-shm-usage')
-    chrome_options.add_argument('--disable-gpu')
-    chrome_options.add_argument('--disable-software-rasterizer')
+    # Platform detection
+    is_windows = sys.platform.startswith('win')
+    is_linux = sys.platform.startswith('linux')
+    
+    # Common options
     chrome_options.add_argument('--window-size=1920,1080')
     chrome_options.add_argument('--disable-extensions')
     chrome_options.add_argument('--disable-infobars')
     chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
     
-    # Create driver
-    driver = webdriver.Chrome(options=chrome_options)
-    driver.set_page_load_timeout(30)
+    # Suppress Chrome error logs (GCM, etc.)
+    chrome_options.add_argument('--log-level=3')  # Only show fatal errors
+    chrome_options.add_argument('--silent')
+    chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
     
-    return driver
+    # Disable background networking and GCM registration
+    chrome_options.add_argument('--disable-background-networking')
+    chrome_options.add_argument('--disable-background-timer-throttling')
+    chrome_options.add_argument('--disable-sync')
+    
+    # Linux-specific options (for server deployments like Render)
+    if is_linux:
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--disable-software-rasterizer')
+    
+    # Windows-specific options (for better local performance)
+    if is_windows:
+        chrome_options.add_argument('--disable-gpu')  # Optional on Windows
+    
+    try:
+        # Create service with suppressed logs
+        service = Service()
+        service.log_path = 'NUL' if is_windows else '/dev/null'
+        
+        # Create driver (Selenium will auto-manage ChromeDriver)
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+        driver.set_page_load_timeout(30)
+        return driver
+    except Exception as e:
+        print(f"✗ Failed to create Chrome driver: {e}")
+        print("\nTroubleshooting:")
+        print("  1. Make sure Google Chrome is installed")
+        print("  2. Check that Chrome version matches ChromeDriver")
+        if is_windows:
+            print("  3. Download ChromeDriver from: https://chromedriver.chromium.org/")
+        raise
 
 
 def get_available_files():
@@ -95,8 +134,13 @@ def upload_file_selenium(user_id, file_path, attempt=1):
         # Find file input
         file_input = driver.find_element(By.NAME, "file")
         
-        # Upload file (provide absolute path)
+        # Upload file (provide absolute path - works on Windows and Linux)
         absolute_path = str(file_path.resolve())
+        
+        # On Windows, ensure proper path format for Selenium
+        if sys.platform.startswith('win'):
+            absolute_path = absolute_path.replace('/', '\\')
+        
         file_input.send_keys(absolute_path)
         
         print(f"[User {user_id}] Selected file: {file_path.name}")
@@ -177,7 +221,7 @@ def run_producer():
     Main producer function.
     Spawns multiple concurrent users uploading files.
     """
-    print("🚀 File-Storm Selenium Producer")
+    print("🚀 ConnectStorm Selenium Producer")
     print(f"   Target URL: {PRODUCER_TARGET_BASE_URL}")
     print(f"   Files Directory: {PRODUCER_FILES_DIR}")
     print(f"   Concurrent Users: {PRODUCER_USERS}")

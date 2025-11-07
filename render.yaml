@@ -6,13 +6,15 @@ services:
     plan: free
     buildCommand: pip install -r requirements.txt
     pythonVersion: "3.12"
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120 --max-requests 1000 --max-requests-jitter 50
+    startCommand: python app.py
     healthCheckPath: /health
     envVars:
       - key: FLASK_ENV
         value: production
       - key: FLASK_PORT
         value: 8080
+      - key: ENABLE_CONSUMER
+        value: "true"
       - key: SECRET_KEY
         sync: false
       - key: REDIS_URL

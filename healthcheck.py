@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-File-Storm Health Check Script
+ConnectStorm Health Check Script
 Verifies all external dependencies and configuration.
 """
 
@@ -182,7 +182,7 @@ def check_selenium():
 
 def main():
     """Run all health checks."""
-    print("⚡ File-Storm Health Check")
+    print("⚡ ConnectStorm Health Check")
     print("=" * 60)
     print()
     

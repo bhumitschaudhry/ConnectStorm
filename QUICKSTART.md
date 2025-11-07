@@ -1,311 +1,215 @@
-# ⚡ File-Storm Quick Start Guide
+# ⚡ Quick Start - Deploy to Render
 
-Get File-Storm running in 5 minutes!
+## ✅ You're All Set!
 
----
-
-## 🚀 Local Development (5 steps)
-
-### Step 1: Install Dependencies
-
-**Linux/Mac:**
-```bash
-chmod +x setup.sh
-./setup.sh
-source venv/bin/activate
-```
-
-**Windows:**
-```powershell
-.\setup.ps1
-.\venv\Scripts\Activate.ps1
-```
-
-**Or manually:**
-```bash
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# OR
-.\venv\Scripts\Activate.ps1  # Windows
-
-pip install -r requirements.txt
-```
+Your `app.py` now includes both frontend + consumer in one file.
 
 ---
 
-### Step 2: Configure Environment
+## 🚀 Deploy to Render (3 Steps)
 
-Copy and edit the environment file:
+### 1. Add Environment Variable to .env
 
-```bash
-cp env.example .env
+Add this line to your `.env` file:
+
+```env
+ENABLE_CONSUMER=true
 ```
 
-Edit `.env` with your credentials:
+### 2. Push to GitHub
 
 ```bash
-# Minimum required for local testing with local storage:
-REDIS_URL=redis://localhost:6379
-PG_URI=postgres://user:pass@localhost:5432/filestorm
-STORAGE_MODE=local
-SECRET_KEY=your-secret-key-here
+git add .
+git commit -m "Updated to combined app with consumer"
+git push
 ```
+
+### 3. Set Environment Variables in Render
+
+Go to your Render dashboard → Your service → Environment
+
+Add these variables:
+
+```
+ENABLE_CONSUMER=true
+STORAGE_MODE=s3
+REDIS_URL=redis://default:password@host:port
+PG_URI=postgresql://user:password@host:port/dbname?sslmode=require
+S3_ENDPOINT=https://...
+S3_BUCKET=your-bucket
+S3_ACCESS_KEY=...
+S3_SECRET_KEY=...
+S3_PUBLIC_BASE_URL=https://...
+```
+
+**That's it!** Render will auto-deploy when you push.
 
 ---
 
-### Step 3: Setup Database
-
-Run the TimescaleDB schema:
+## 🧪 Test Locally First
 
 ```bash
-psql $PG_URI -f schema.sql
-```
+# Add to .env:
+ENABLE_CONSUMER=true
 
-Or if using psql directly:
-```bash
-psql -h localhost -U postgres -d filestorm -f schema.sql
-```
-
----
-
-### Step 4: Run Health Check
-
-Verify everything is configured correctly:
-
-```bash
-python healthcheck.py
-```
-
-This will check:
-- ✓ Python packages installed
-- ✓ Environment variables set
-- ✓ Redis connection
-- ✓ PostgreSQL/TimescaleDB connection
-- ✓ Storage configuration
-- ✓ Selenium setup
-
----
-
-### Step 5: Start Services
-
-**Option A: Individual terminals (recommended for development)**
-
-Terminal 1 - Flask Web:
-```bash
+# Run
 python app.py
-```
 
-Terminal 2 - Consumer Worker:
-```bash
-python consumer.py
-```
+# Should see:
+# ✓ Consumer worker thread started
+# 🌐 Starting Flask on port 8080...
 
-Terminal 3 - Selenium Producer:
-```bash
-python selenium_producer.py
-```
-
-**Option B: All at once with multiprocessing**
-```bash
-python run.py
-```
-
-**Option C: Using Make (Linux/Mac)**
-```bash
-make run-web      # Terminal 1
-make run-consumer # Terminal 2
-make run-producer # Terminal 3
+# Test upload:
+# Go to http://localhost:8080/upload
 ```
 
 ---
 
-## 🌐 Access the Application
+## 📊 Verify It's Working
 
-Once running, visit:
+### Check Render Logs
 
-- **Homepage**: http://localhost:8080
-- **Upload Page**: http://localhost:8080/upload
-- **Dashboard**: http://localhost:8080/dashboard
-- **API Counts**: http://localhost:8080/api/counts
-- **Health Check**: http://localhost:8080/health
-
----
-
-## 📊 Monitor Activity
-
-### Watch Dashboard
-Open http://localhost:8080/dashboard and watch:
-- Redis queue size (should increase when producer runs)
-- TimescaleDB count (should increase as consumer processes)
-- Processing rate (records/second)
-
-### Check Redis Stream
-```bash
-redis-cli -u $REDIS_URL XLEN filestorm:uploads
+You should see:
+```
+✓ Database connection pool initialized
+✓ Consumer group 'connectstorm_group' already exists
+✓ Consumer worker thread started
+🌐 Starting Flask on port 8080...
 ```
 
-### Check Database Records
-```bash
-psql $PG_URI -c "SELECT COUNT(*) FROM file_events;"
-psql $PG_URI -c "SELECT * FROM file_events ORDER BY event_time DESC LIMIT 10;"
+### Upload a File
+
+1. Go to: `https://your-app.onrender.com/upload`
+2. Upload a test file
+3. Check logs for: `✓ Consumer: 1 processed`
+
+### Check Dashboard
+
+Go to: `https://your-app.onrender.com/dashboard`
+
+Should show:
+- Redis: 0 (processed immediately)
+- TimescaleDB: 1+ (records stored)
+
+---
+
+## 🔧 Configuration
+
+### Required Environment Variables
+
+| Variable | Example | Note |
+|----------|---------|------|
+| `ENABLE_CONSUMER` | `true` | **NEW!** Enables background consumer |
+| `STORAGE_MODE` | `s3` | Must be `s3` for cloud |
+| `REDIS_URL` | `redis://...` | Your Redis Cloud URL |
+| `PG_URI` | `postgresql://...` | TimescaleDB connection |
+| `S3_ENDPOINT` | `https://...` | S3/R2 endpoint |
+| `S3_BUCKET` | `mybucket` | Your bucket name |
+| `S3_ACCESS_KEY` | `...` | S3 access key |
+| `S3_SECRET_KEY` | `...` | S3 secret key |
+| `S3_PUBLIC_BASE_URL` | `https://...` | Public URL for files |
+
+### Optional Tuning
+
+```env
+CONSUMER_BATCH_SIZE=50      # Files per batch (default: 50)
+CONSUMER_BLOCK_MS=1000      # Polling interval (default: 1000ms)
 ```
 
 ---
 
-## 🧪 Test the System
+## 📁 File Structure (After Cleanup)
 
-### Manual Upload Test
-1. Visit http://localhost:8080/upload
-2. Select a file from your computer
-3. Enter an uploader ID (optional): `test_user`
-4. Click "Upload File"
-5. Check dashboard for updated counts
+**Main Files:**
+- ✅ `app.py` - Combined frontend + consumer
+- ✅ `consumer.py` - Standalone consumer (for Option 2 later)
+- ✅ `storage.py` - S3/R2 handler
+- ✅ `schema.sql` - Database schema
 
-### Automated Upload Test
-```bash
-# Make sure you have files in the files/ directory
-python selenium_producer.py
+**Backup Files (safe to delete):**
+- `app_local_backup.py` - Original separate frontend
+- `app_old_backup.py` - Previous app.py version
+- `consumer_local_backup.py` - Original separate consumer
+
+**Tools:**
+- `status.py` - Check system status
+- `reset.py` - Clear data
+- `healthcheck.py` - Health monitoring
+- `selenium_producer.py` - Load testing
+
+**Guides:**
+- `README.md` - Main documentation
+- `RENDER_DEPLOYMENT.md` - Detailed Render guide
+- `DEPLOYMENT_OPTIONS.md` - All deployment options
+- `QUICKSTART.md` - This file!
+
+---
+
+## 🆘 Troubleshooting
+
+### Consumer not running?
+
+**Check logs for:**
+```
+✓ Consumer worker thread started
 ```
 
-This will:
-- Spawn 5 concurrent browser sessions (headless)
-- Each uploads 2 random files from `files/` directory
-- Shows real-time progress
-- Displays summary at the end
-
----
-
-## 🔧 Configuration Tips
-
-### Adjust Selenium Behavior
-
-Edit `.env`:
-```bash
-PRODUCER_USERS=3          # Number of concurrent users
-PRODUCER_REPEATS=5        # Uploads per user
-PRODUCER_HEADLESS=false   # Show browser (for debugging)
+**If missing, verify:**
+```env
+ENABLE_CONSUMER=true  ← Must be set!
 ```
 
-### Adjust Consumer Performance
+### Files not uploading?
 
-Edit `.env`:
-```bash
-CONSUMER_BATCH_SIZE=20    # Process 20 messages at once
-CONSUMER_BLOCK_MS=2000    # Wait 2s for new messages
+**Verify:**
+```env
+STORAGE_MODE=s3  ← NOT 'local'!
 ```
 
-### Use Local Storage (for testing)
+### Service sleeping?
 
-Edit `.env`:
+Render free tier sleeps after 15 min.
+
+**Solution:** Use [UptimeRobot](https://uptimerobot.com/) (free) to ping:
+```
+https://your-app.onrender.com/health
+```
+Every 5 minutes.
+
+### Need more help?
+
+Read the detailed guides:
+- `RENDER_DEPLOYMENT.md` - Full deployment guide
+- `DEPLOYMENT_OPTIONS.md` - Understand all options
+- `PERFORMANCE.md` - Optimization tips
+
+---
+
+## 🎉 Success!
+
+Once deployed, your app will:
+1. ✅ Accept file uploads via web interface
+2. ✅ Store files in S3/R2
+3. ✅ Process them in background (same process)
+4. ✅ Save metadata to TimescaleDB
+5. ✅ Show real-time stats on dashboard
+
+**Everything runs in one process on Render free tier!**
+
+---
+
+## 📊 Check Status Anytime
+
 ```bash
-STORAGE_MODE=local
-LOCAL_STORAGE_DIR=/tmp/filestorm_storage
+# Local:
+python status.py
+
+# Cloud:
+curl https://your-app.onrender.com/health
+curl https://your-app.onrender.com/api/counts
 ```
 
-Files will be stored locally instead of S3/R2.
-
 ---
 
-## 🐛 Troubleshooting
-
-### "Redis connection failed"
-- Ensure Redis is running: `redis-server`
-- Check REDIS_URL in .env
-- Test: `redis-cli ping`
-
-### "Database connection failed"
-- Ensure PostgreSQL is running
-- Check PG_URI in .env
-- Verify database exists: `psql $PG_URI -c "SELECT 1;"`
-
-### "Schema not found"
-- Run: `psql $PG_URI -f schema.sql`
-- Check if table exists: `psql $PG_URI -c "\dt"`
-
-### "Selenium can't find files"
-- Add files to `files/` directory
-- Check PRODUCER_FILES_DIR in .env
-- Verify files exist: `ls files/`
-
-### "Chrome driver not found"
-- Install Chrome browser
-- Selenium will auto-download chromedriver
-- Or manually: https://chromedriver.chromium.org/
-
-### "No module named 'flask'"
-- Activate virtual environment
-- Install dependencies: `pip install -r requirements.txt`
-
----
-
-## ☁️ Deploy to Cloud
-
-Ready to deploy to Render? See **[deploy.md](deploy.md)** for complete instructions.
-
-Quick summary:
-1. Push code to GitHub
-2. Setup managed Redis (Redis Cloud / Upstash)
-3. Setup TimescaleDB (Timescale Cloud / Supabase)
-4. Setup S3 or R2
-5. Deploy to Render using `render.yaml`
-6. Configure environment variables
-7. Done! 🎉
-
----
-
-## 📚 Next Steps
-
-### Learn More
-- Read [README.md](README.md) for architecture details
-- Read [deploy.md](deploy.md) for production deployment
-- Check `render.yaml` for service configuration
-
-### Customize
-- Modify `templates/upload.html` for custom UI
-- Edit `templates/dashboard.html` for custom metrics
-- Add authentication in `app.py`
-- Implement file validation
-- Add more API endpoints
-
-### Scale Up
-- Deploy multiple consumer workers
-- Increase batch sizes
-- Add load balancer
-- Enable auto-scaling on Render
-
----
-
-## 🆘 Getting Help
-
-If you run into issues:
-
-1. **Run health check**: `python healthcheck.py`
-2. **Check logs**: Look at console output for errors
-3. **Verify config**: Ensure `.env` is correct
-4. **Test connections**: Use redis-cli and psql
-5. **Read docs**: See README.md and deploy.md
-
----
-
-## ✅ Success Checklist
-
-- [ ] Dependencies installed
-- [ ] `.env` file configured
-- [ ] Redis accessible
-- [ ] PostgreSQL/TimescaleDB accessible
-- [ ] Schema applied (file_events table exists)
-- [ ] Files added to `files/` directory
-- [ ] Flask web server starts
-- [ ] Can access http://localhost:8080
-- [ ] Dashboard shows metrics
-- [ ] Manual upload works
-- [ ] Consumer processes messages
-- [ ] Producer runs successfully
-- [ ] Records appear in database
-
----
-
-**You're all set! 🎉**
-
-Start uploading files and watch the distributed system in action!
+**That's it! You're ready to deploy! 🚀**
 
