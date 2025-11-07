@@ -10,7 +10,6 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -20,7 +19,6 @@
             align-items: center;
             padding: 20px;
         }
-        
         .container {
             background: white;
             border-radius: 20px;
@@ -29,25 +27,21 @@
             max-width: 500px;
             width: 100%;
         }
-        
         h1 {
             color: #333;
             margin-bottom: 10px;
             font-size: 32px;
             text-align: center;
         }
-        
         .subtitle {
             color: #666;
             text-align: center;
             margin-bottom: 30px;
             font-size: 14px;
         }
-        
         .form-group {
             margin-bottom: 25px;
         }
-        
         label {
             display: block;
             margin-bottom: 8px;
@@ -55,7 +49,6 @@
             font-weight: 600;
             font-size: 14px;
         }
-        
         input[type="file"] {
             display: block;
             width: 100%;
@@ -67,12 +60,10 @@
             cursor: pointer;
             transition: all 0.3s ease;
         }
-        
         input[type="file"]:hover {
             border-color: #764ba2;
             background: #f0f1ff;
         }
-        
         input[type="text"] {
             width: 100%;
             padding: 12px 15px;
@@ -81,12 +72,10 @@
             font-size: 14px;
             transition: border-color 0.3s ease;
         }
-        
         input[type="text"]:focus {
             outline: none;
             border-color: #667eea;
         }
-        
         button[type="submit"] {
             width: 100%;
             padding: 15px;
@@ -99,16 +88,13 @@
             cursor: pointer;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
-        
         button[type="submit"]:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
         }
-        
         button[type="submit"]:active {
             transform: translateY(0);
         }
-        
         .message {
             padding: 15px;
             border-radius: 10px;
@@ -116,37 +102,31 @@
             font-size: 14px;
             display: none;
         }
-        
         .message.success {
             background: #d4edda;
             color: #155724;
             border: 1px solid #c3e6cb;
         }
-        
         .message.error {
             background: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
-        }
-        
+        }        
         .nav-links {
             text-align: center;
             margin-top: 20px;
             padding-top: 20px;
             border-top: 1px solid #e0e0e0;
-        }
-        
+        }        
         .nav-links a {
             color: #667eea;
             text-decoration: none;
             font-weight: 600;
             font-size: 14px;
-        }
-        
+        }        
         .nav-links a:hover {
             text-decoration: underline;
-        }
-        
+        }        
         .loading {
             display: none;
             text-align: center;
@@ -159,64 +139,45 @@
     <div class="container">
         <h1>ConnectStorm</h1>
         <p class="subtitle">Upload your files to the distributed ingestion system</p>
-        
         <div id="message" class="message"></div>
-        
         <form id="uploadForm" action="/api/upload" method="POST" enctype="multipart/form-data">
             <div class="form-group">
                 <label for="file">Select File *</label>
                 <input type="file" id="file" name="file" required>
             </div>
-            
             <div class="form-group">
                 <label for="uploader_id">Uploader ID (optional)</label>
                 <input type="text" id="uploader_id" name="uploader_id" placeholder="e.g., user_1">
             </div>
-            
             <button type="submit">Upload File</button>
-            
             <div class="loading">
                 <p>Uploading...</p>
             </div>
         </form>
-        
         <div class="nav-links">
             <a href="/dashboard">View Dashboard</a>
         </div>
-    </div>
-    
+    </div>  
     <script>
         const form = document.getElementById('uploadForm');
         const messageDiv = document.getElementById('message');
         const loadingDiv = document.querySelector('.loading');
-        
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
-            // Show loading
             loadingDiv.style.display = 'block';
             messageDiv.style.display = 'none';
-            
-            // Get form data
             const formData = new FormData(form);
-            
             try {
                 const response = await fetch('/api/upload', {
                     method: 'POST',
                     body: formData
                 });
-                
                 const data = await response.json();
-                
-                // Hide loading
                 loadingDiv.style.display = 'none';
-                
                 if (response.ok) {
                     messageDiv.className = 'message success';
                     messageDiv.textContent = `${data.message || 'File uploaded successfully!'}`;
                     messageDiv.style.display = 'block';
-                    
-                    // Reset form
                     form.reset();
                 } else {
                     messageDiv.className = 'message error';
@@ -233,4 +194,3 @@
     </script>
 </body>
 </html>
-
