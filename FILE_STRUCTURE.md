@@ -18,7 +18,6 @@ ConnectStorm/
 ├── 🛠️ UTILITIES
 │   ├── status.py                   # Check system status
 │   ├── reset.py                    # Clear Redis & TimescaleDB
-│   ├── healthcheck.py              # Health monitoring
 │   └── selenium_producer.py        # Load testing (local only)
 │
 ├── ⚙️ CONFIGURATION
@@ -63,7 +62,6 @@ ConnectStorm/
 |------|---------|-------|
 | `status.py` | Check Redis & DB status | `python status.py` |
 | `reset.py` | Clear all data | `python reset.py` |
-| `healthcheck.py` | Comprehensive health check | `python healthcheck.py` |
 | `selenium_producer.py` | Load testing tool | `python selenium_producer.py` |
 
 ### ⚙️ Configuration
