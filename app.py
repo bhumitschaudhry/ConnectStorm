@@ -186,9 +186,17 @@ def batch_insert_to_db(records):
     if not records:
         return 0
     
+    if not db_pool:
+        print("ERROR: Database pool not initialized, cannot insert records")
+        return 0
+    
     conn = None
     try:
         conn = get_db_connection()
+        if not conn:
+            print("ERROR: Failed to get database connection from pool")
+            return 0
+        
         cur = conn.cursor()
         
         insert_query = """
@@ -204,6 +212,7 @@ def batch_insert_to_db(records):
             for r in records
         ]
         
+        print(f"Batch insert: Attempting to insert {len(data_tuples)} records...")
         cur.executemany(insert_query, data_tuples)
         conn.commit()
         
@@ -211,9 +220,30 @@ def batch_insert_to_db(records):
         cur.close()
         return_db_connection(conn)
         
-        print(f"Batch insert: {inserted_count} records inserted to database")
+        if inserted_count > 0:
+            print(f"✓ Batch insert SUCCESS: {inserted_count} records inserted to database")
+        else:
+            print(f"WARNING: Batch insert returned 0 rows inserted (expected {len(data_tuples)})")
+        
         return inserted_count
         
+    except psycopg2.OperationalError as e:
+        import traceback
+        print(f"Batch insert database connection error: {e}")
+        print(f"   This might indicate database is down or connection lost")
+        if conn:
+            try:
+                conn.rollback()
+                return_db_connection(conn)
+            except:
+                pass
+        # Try to reinitialize connection pool
+        try:
+            global db_pool
+            init_db_pool()
+        except:
+            pass
+        return 0
     except Exception as e:
         import traceback
         print(f"Batch insert error: {e}")
@@ -405,7 +435,7 @@ def consume_batch():
 
 def consumer_worker():
     """Background consumer worker thread - runs continuously."""
-    global consumer_running
+    global consumer_running, db_pool
     
     print(f"Consumer worker thread running")
     print(f"   Stream: {STREAM_KEY}")
@@ -418,6 +448,21 @@ def consumer_worker():
     total_processed = 0
     consecutive_empty = 0
     error_count = 0
+    
+    # Wait for database pool to be initialized
+    db_wait_count = 0
+    while not db_pool and consumer_running and db_wait_count < 20:
+        print(f"Waiting for database pool initialization... ({db_wait_count}/20)")
+        time.sleep(1)
+        db_wait_count += 1
+    
+    if not db_pool:
+        print("ERROR: Database pool not initialized after 20 seconds!")
+        print("Consumer worker cannot continue without database connection.")
+        return
+    
+    print("Database pool ready, starting message processing...")
+    print()
     
     while consumer_running:
         try:
@@ -478,17 +523,27 @@ def consumer_worker():
             import traceback
             print(f"   Traceback: {traceback.format_exc()}")
             
+            # Check if database connection is still valid
+            if not db_pool:
+                print("Database pool is None, attempting to reinitialize...")
+                try:
+                    init_db_pool()
+                except Exception as db_err:
+                    print(f"Failed to reinitialize database pool: {db_err}")
+            
             # Wait before retry, but not too long
             wait_time = min(2 * error_count, 10)  # Max 10 seconds
             time.sleep(wait_time)
             
             # If errors persist, try to reinitialize
             if error_count > 5:
-                print("Multiple errors, reinitializing Redis stream...")
+                print("Multiple errors, reinitializing Redis stream and database...")
                 try:
                     init_redis_stream()
-                except:
-                    pass
+                    if not db_pool:
+                        init_db_pool()
+                except Exception as init_err:
+                    print(f"Reinitialization error: {init_err}")
                 error_count = 0
     
     print("Consumer worker stopped")
@@ -764,18 +819,21 @@ def start_consumer():
         print("Consumer disabled (set ENABLE_CONSUMER=true to enable)")
 
 
-# Flask startup hook - process messages on first request
-@app.before_request
-def before_request():
-    """Ensure consumer processes messages on each request if needed."""
-    # This ensures consumer is running (but doesn't block requests)
-    pass
+# ============================================================================
+# APP INITIALIZATION (runs on import for WSGI servers like Render)
+# ============================================================================
 
+_initialized = False
 
-if __name__ == '__main__':
-    # Initialize
+def initialize_app():
+    """Initialize database, Redis, and start consumer. Safe to call multiple times."""
+    global _initialized, consumer_thread, consumer_running
+    
+    if _initialized:
+        return
+    
     print("=" * 70)
-    print("CONNECTSTORM (COMBINED APP + CONSUMER)")
+    print("CONNECTSTORM (COMBINED APP + CONSUMER) - INITIALIZING")
     print("=" * 70)
     print(f"Storage mode: {STORAGE_MODE}")
     print(f"Consumer enabled: {ENABLE_CONSUMER}")
@@ -792,28 +850,76 @@ if __name__ == '__main__':
         print("WARNING: Database pool initialization failed!")
         print("   Consumer may not work properly")
         print()
+    else:
+        print("Database pool initialized successfully")
     
     print("Initializing Redis stream...")
     init_redis_stream()
+    print("Redis stream initialized")
     print()
     
-    # Start consumer in background BEFORE starting Flask
-    if ENABLE_CONSUMER:
+    # Start consumer in background
+    if ENABLE_CONSUMER and db_ok:
         print("Starting consumer worker...")
         start_consumer()
         
         # Give consumer thread a moment to start
-        time.sleep(2)
+        time.sleep(1)
         
         # Verify consumer is running
         if consumer_thread and consumer_thread.is_alive():
-            print("Consumer thread is running")
+            print("✓ Consumer thread is running")
         else:
             print("WARNING: Consumer thread may not be running!")
-    else:
+    elif not ENABLE_CONSUMER:
         print("Consumer is DISABLED!")
         print("   Set ENABLE_CONSUMER=true to enable consumer")
+    elif not db_ok:
+        print("Consumer NOT started - database initialization failed")
+    
     print()
+    _initialized = True
+
+# Initialize when module is imported (works with WSGI servers)
+# Use threading to avoid blocking
+def _init_in_background():
+    """Initialize app in background thread to avoid blocking."""
+    try:
+        init_thread = threading.Thread(target=initialize_app, daemon=True, name="AppInitializer")
+        init_thread.start()
+        # Give it a moment to start, but don't block
+        time.sleep(0.5)
+    except Exception as e:
+        print(f"Error starting initialization thread: {e}")
+        # Fallback: initialize directly
+        initialize_app()
+
+# For WSGI servers (Render, gunicorn, etc.), initialize on first request
+@app.before_request
+def before_request():
+    """Ensure initialization and consumer are running."""
+    global _initialized
+    if not _initialized:
+        # Initialize synchronously on first request to avoid race conditions
+        initialize_app()
+
+# Initialize immediately when module loads (works for direct execution and WSGI setups)
+# This ensures consumer starts even when app is imported by gunicorn
+_init_in_background()
+
+
+if __name__ == '__main__':
+    # Wait for initialization to complete
+    print("Waiting for initialization...")
+    max_wait = 10
+    waited = 0
+    while not _initialized and waited < max_wait:
+        time.sleep(0.5)
+        waited += 0.5
+    
+    if not _initialized:
+        print("Initialization taking longer than expected, continuing anyway...")
+        initialize_app()  # Force initialization
     
     # Run Flask (this blocks the main thread, but consumer runs in background)
     port = int(os.getenv('PORT', os.getenv('FLASK_PORT', 8080)))
