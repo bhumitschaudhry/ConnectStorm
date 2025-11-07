@@ -239,8 +239,7 @@ def batch_insert_to_db(records):
                 pass
         # Try to reinitialize connection pool
         try:
-            global db_pool
-            init_db_pool()
+            init_db_pool()  # init_db_pool already handles global db_pool internally
         except:
             pass
         return 0
