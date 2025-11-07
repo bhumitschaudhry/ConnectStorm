@@ -124,7 +124,7 @@ def init_redis_stream():
 # CONSUMER FUNCTIONS (Background Worker)
 # ============================================================================
 
-def process_message(message_data):
+def process_message(message_data, message_id=None):
     """Process a single message."""
     try:
         operation = message_data.get('operation', 'UPLOAD')
@@ -148,7 +148,8 @@ def process_message(message_data):
                 'file_size': size,
                 'mime_type': mime_type,
                 'storage_url': storage_url,
-                'uploader_id': uploader_id
+                'uploader_id': uploader_id,
+                'redis_message_id': message_id  # Store Redis message ID for deduplication
             }
             return 'success', metadata
         
@@ -172,7 +173,8 @@ def process_message(message_data):
                 'file_size': size,
                 'mime_type': mime_type,
                 'storage_url': storage_url,
-                'uploader_id': uploader_id
+                'uploader_id': uploader_id,
+                'redis_message_id': message_id  # Store Redis message ID for deduplication
             }
             return 'success', metadata
         
@@ -199,16 +201,20 @@ def batch_insert_to_db(records):
         
         cur = conn.cursor()
         
+        # Use ON CONFLICT to prevent duplicate inserts based on Redis message ID
+        # This prevents the same Redis message from being processed multiple times
+        # Note: TimescaleDB requires event_time in unique indexes, so we use (redis_message_id, event_time)
         insert_query = """
             INSERT INTO file_events (
                 event_time, operation, filename, file_size, 
-                mime_type, storage_url, uploader_id
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                mime_type, storage_url, uploader_id, redis_message_id
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (redis_message_id, event_time) DO NOTHING
         """
         
         data_tuples = [
             (r['event_time'], r['operation'], r['filename'], 
-             r['file_size'], r['mime_type'], r['storage_url'], r['uploader_id'])
+             r['file_size'], r['mime_type'], r['storage_url'], r['uploader_id'], r.get('redis_message_id'))
             for r in records
         ]
         
@@ -312,7 +318,7 @@ def consume_batch():
                                         else:
                                             continue
                                         
-                                        status, metadata = process_message(msg_data)
+                                        status, metadata = process_message(msg_data, message_id=msg_id)
                                         if status == 'success':
                                             claimed_records.append(metadata)
                                             claimed_ids.append(msg_id)
@@ -335,34 +341,18 @@ def consume_batch():
         except Exception as e:
             pass  # Continue with normal processing
         
-        # Process new messages (use '>' to only get new messages)
+        # Process new messages (use '>' to only get new messages - never read pending ones here!)
         messages = redis_client.xreadgroup(
             CONSUMER_GROUP,
             CONSUMER_NAME,
-            {STREAM_KEY: '>'},
+            {STREAM_KEY: '>'},  # Only new messages, NOT pending ones
             count=BATCH_SIZE,
             block=BLOCK_MS
         )
         
-        # If no new messages, try reading from beginning (in case of issues)
+        # If no new messages, return (don't try to read pending - that causes duplicates!)
         if not messages:
-            # Double-check: maybe messages exist but weren't read
-            queue_len = redis_client.xlen(STREAM_KEY)
-            if queue_len > 0:
-                # Try reading from start (id='0') to catch any missed messages
-                try:
-                    messages = redis_client.xreadgroup(
-                        CONSUMER_GROUP,
-                        CONSUMER_NAME,
-                        {STREAM_KEY: '0'},  # Read from start
-                        count=min(BATCH_SIZE, queue_len),
-                        block=0  # Don't block, just try once
-                    )
-                except:
-                    messages = None
-            
-            if not messages:
-                return 0
+            return 0
         
         successful_records = []
         message_ids_to_ack = []
@@ -373,7 +363,7 @@ def consume_batch():
         
         for stream_name, stream_messages in messages:
             for message_id, message_data in stream_messages:
-                status, metadata = process_message(message_data)
+                status, metadata = process_message(message_data, message_id=message_id)
                 
                 if status == 'success':
                     successful_records.append(metadata)
