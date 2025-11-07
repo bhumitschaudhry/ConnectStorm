@@ -230,6 +230,59 @@ def batch_insert_to_db(records):
 def consume_batch():
     """Read and process a batch of messages."""
     try:
+        # First, check for and process pending messages (stuck ones)
+        try:
+            pending_info = redis_client.xpending(STREAM_KEY, CONSUMER_GROUP)
+            if pending_info and pending_info.get('pending', 0) > 0:
+                pending_count = pending_info['pending']
+                print(f"📋 Found {pending_count} pending messages, attempting to process...")
+                
+                # Try to claim and process pending messages
+                try:
+                    pending_list = redis_client.xpending_range(
+                        STREAM_KEY, CONSUMER_GROUP, '-', '+', min(pending_count, 10)
+                    )
+                    if pending_list:
+                        msg_ids_to_claim = []
+                        for msg in pending_list:
+                            if isinstance(msg, dict) and 'message_id' in msg:
+                                msg_ids_to_claim.append(msg['message_id'])
+                            elif isinstance(msg, (list, tuple)) and len(msg) > 0:
+                                msg_ids_to_claim.append(msg[0])
+                        
+                        if msg_ids_to_claim:
+                            # Claim messages that have been pending > 10 seconds
+                            claimed = redis_client.xclaim(
+                                STREAM_KEY, CONSUMER_GROUP, CONSUMER_NAME, 10000, msg_ids_to_claim
+                            )
+                            if claimed:
+                                # xclaim returns list of (message_id, {field: value, ...}) tuples
+                                print(f"✓ Claimed {len(claimed)} pending messages")
+                                for claim_item in claimed:
+                                    if isinstance(claim_item, (list, tuple)) and len(claim_item) >= 2:
+                                        msg_id = claim_item[0]
+                                        msg_data = claim_item[1]
+                                    else:
+                                        continue
+                                    
+                                    status, metadata = process_message(msg_data)
+                                    if status == 'success':
+                                        inserted = batch_insert_to_db([metadata])
+                                        if inserted > 0:
+                                            redis_client.xack(STREAM_KEY, CONSUMER_GROUP, msg_id)
+                                            redis_client.xdel(STREAM_KEY, msg_id)
+                                            print(f"✓ Processed pending message: {msg_id}")
+                except Exception as claim_error:
+                    print(f"⚠️  Could not claim pending messages: {claim_error}")
+                    import traceback
+                    print(traceback.format_exc())
+        except redis.exceptions.ResponseError as e:
+            if 'NOGROUP' not in str(e):
+                print(f"⚠️  Error checking pending: {e}")
+        except Exception as e:
+            pass  # Continue with normal processing
+        
+        # Process new messages
         messages = redis_client.xreadgroup(
             CONSUMER_GROUP,
             CONSUMER_NAME,
@@ -245,7 +298,8 @@ def consume_batch():
         message_ids_to_ack = []
         message_ids_to_skip = []
         
-        print(f"📥 Consumer: Processing {sum(len(msgs) for _, msgs in messages)} messages")
+        msg_count = sum(len(msgs) for _, msgs in messages)
+        print(f"📥 Consumer: Processing {msg_count} new messages")
         
         for stream_name, stream_messages in messages:
             for message_id, message_data in stream_messages:
@@ -257,7 +311,8 @@ def consume_batch():
                 elif status == 'skip':
                     message_ids_to_skip.append(message_id)
                 elif status == 'error':
-                    print(f"⚠️  Message {message_id} failed to process")
+                    print(f"⚠️  Message {message_id} failed to process, will retry")
+                    # Don't acknowledge, let it be retried
         
         # Batch insert
         processed_count = 0
@@ -273,11 +328,14 @@ def consume_batch():
                 print(f"✓ Consumer: Acknowledged {processed_count} messages")
             else:
                 print(f"✗ Consumer: Database insert failed! Records not inserted.")
-                # Don't acknowledge if insert failed
+                # Don't acknowledge if insert failed - messages will be retried
         else:
-            print("⚠️  Consumer: No successful records to insert")
+            if message_ids_to_skip:
+                print(f"⚠️  Consumer: {len(message_ids_to_skip)} messages skipped (no valid data)")
+            else:
+                print("⚠️  Consumer: No successful records to insert")
         
-        # Skip failed messages
+        # Skip failed messages (file not found, etc.)
         if message_ids_to_skip:
             print(f"⊘ Consumer: Skipping {len(message_ids_to_skip)} messages")
             for msg_id in message_ids_to_skip:
@@ -290,6 +348,8 @@ def consume_batch():
         if 'NOGROUP' in str(e):
             print(f"⚠️  Consumer group not found, initializing...")
             init_redis_stream()
+            # Retry immediately after creating group
+            return consume_batch()
         else:
             print(f"✗ Consumer Redis error: {e}")
             import traceback
@@ -312,20 +372,36 @@ def consumer_worker():
     print(f"   Consumer Name: {CONSUMER_NAME}")
     print(f"   Batch Size: {BATCH_SIZE}")
     print(f"   Block Time: {BLOCK_MS}ms")
+    print()
     
     total_processed = 0
     idle_cycles = 0
+    error_count = 0
     
     while consumer_running:
         try:
             count = consume_batch()
             total_processed += count
+            error_count = 0  # Reset error count on success
             
             if count > 0:
                 print(f"✓ Consumer: {count} processed (total: {total_processed})")
                 idle_cycles = 0
             else:
                 idle_cycles += 1
+                # Check queue length periodically
+                if idle_cycles % 60 == 0:  # Every minute
+                    try:
+                        queue_len = redis_client.xlen(STREAM_KEY)
+                        if queue_len > 0:
+                            print(f"⚠️  Consumer: {queue_len} messages still in queue")
+                            # Try to process immediately
+                            count = consume_batch()
+                            if count > 0:
+                                total_processed += count
+                                idle_cycles = 0
+                    except:
+                        pass
                 if idle_cycles % 300 == 0:  # Every 5 minutes
                     print(f"💓 Consumer idle: {idle_cycles * BLOCK_MS // 1000}s")
             
@@ -333,10 +409,20 @@ def consumer_worker():
             print("⚠ Consumer worker interrupted")
             break
         except Exception as e:
-            print(f"✗ Consumer worker error: {e}")
+            error_count += 1
+            print(f"✗ Consumer worker error ({error_count}): {e}")
             import traceback
             print(f"   Traceback: {traceback.format_exc()}")
-            time.sleep(5)
+            
+            # If too many errors, wait longer
+            wait_time = min(5 * error_count, 60)  # Max 60 seconds
+            time.sleep(wait_time)
+            
+            # If errors persist, try to reinitialize
+            if error_count > 10:
+                print("⚠️  Too many errors, reinitializing Redis stream...")
+                init_redis_stream()
+                error_count = 0
     
     print("⚠ Consumer worker stopped")
 
@@ -497,15 +583,40 @@ def health():
         conn = get_db_connection()
         return_db_connection(conn)
         
+        # Check queue length
+        queue_len = redis_client.xlen(STREAM_KEY)
+        
         status = {
             'status': 'healthy',
             'consumer_enabled': ENABLE_CONSUMER,
             'consumer_running': consumer_running,
+            'queue_length': queue_len,
             'timestamp': datetime.now(timezone.utc).isoformat()
         }
         return jsonify(status), 200
     except Exception as e:
         return jsonify({'status': 'unhealthy', 'error': str(e)}), 503
+
+
+@app.route('/api/trigger-consumer', methods=['POST'])
+def trigger_consumer():
+    """Manually trigger consumer to process messages (for debugging)."""
+    if not ENABLE_CONSUMER:
+        return jsonify({'error': 'Consumer is disabled'}), 400
+    
+    try:
+        # Process one batch manually
+        count = consume_batch()
+        queue_len = redis_client.xlen(STREAM_KEY)
+        
+        return jsonify({
+            'success': True,
+            'processed': count,
+            'queue_remaining': queue_len,
+            'message': f'Processed {count} messages, {queue_len} remaining'
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 # ============================================================================
