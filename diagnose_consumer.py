@@ -31,10 +31,10 @@ print("-" * 70)
 print(f"ENABLE_CONSUMER env var: {os.getenv('ENABLE_CONSUMER', 'NOT SET')}")
 print(f"ENABLE_CONSUMER parsed: {ENABLE_CONSUMER}")
 if not ENABLE_CONSUMER:
-    print("❌ PROBLEM: ENABLE_CONSUMER is not 'true'")
+    print("PROBLEM: ENABLE_CONSUMER is not 'true'")
     print("   Fix: Set ENABLE_CONSUMER=true in .env or Render dashboard")
 else:
-    print("✅ ENABLE_CONSUMER is set correctly")
+    print(" ENABLE_CONSUMER is set correctly")
 print()
 
 # Check 2: Redis connection
@@ -43,14 +43,14 @@ print("-" * 70)
 try:
     redis_client = redis.from_url(REDIS_URL, decode_responses=True)
     redis_client.ping()
-    print("✅ Redis connection: OK")
+    print(" Redis connection: OK")
     
     # Check stream
     stream_len = redis_client.xlen(STREAM_KEY)
-    print(f"✅ Stream '{STREAM_KEY}': {stream_len} messages")
+    print(f" Stream '{STREAM_KEY}': {stream_len} messages")
     
     if stream_len > 0:
-        print(f"⚠️  {stream_len} messages waiting to be processed")
+        print(f"  {stream_len} messages waiting to be processed")
         
         # Check consumer group
         try:
@@ -63,25 +63,25 @@ try:
                 block=100
             )
             if messages:
-                print("✅ Consumer group can read messages")
+                print(" Consumer group can read messages")
                 for stream, msgs in messages:
                     for msg_id, msg_data in msgs:
                         print(f"   Sample message: {msg_id}")
                         print(f"   Data: {list(msg_data.keys())}")
             else:
-                print("⚠️  No messages returned from consumer group")
+                print("  No messages returned from consumer group")
         except redis.exceptions.ResponseError as e:
             if 'NOGROUP' in str(e):
-                print("❌ PROBLEM: Consumer group doesn't exist!")
+                print("PROBLEM: Consumer group doesn't exist!")
                 print(f"   Error: {e}")
                 print("   Fix: Consumer needs to initialize the group")
             else:
-                print(f"❌ Error reading from consumer group: {e}")
+                print(f" Error reading from consumer group: {e}")
     else:
-        print("✅ No messages in queue (expected if all processed)")
+        print(" No messages in queue (expected if all processed)")
         
 except Exception as e:
-    print(f"❌ Redis connection failed: {e}")
+    print(f" Redis connection failed: {e}")
 print()
 
 # Check 3: Database connection
@@ -101,25 +101,25 @@ try:
     table_exists = cur.fetchone()[0]
     
     if table_exists:
-        print("✅ Table 'file_events' exists")
+        print(" Table 'file_events' exists")
         
         # Check record count
         cur.execute("SELECT COUNT(*) FROM file_events")
         count = cur.fetchone()[0]
-        print(f"✅ Records in database: {count}")
+        print(f" Records in database: {count}")
         
         if count == 0 and stream_len > 0:
-            print("❌ PROBLEM: Messages in Redis but no records in DB!")
+            print("PROBLEM: Messages in Redis but no records in DB!")
             print("   This means consumer is not processing messages")
     else:
-        print("❌ PROBLEM: Table 'file_events' doesn't exist!")
+        print(" PROBLEM: Table 'file_events' doesn't exist!")
         print("   Fix: Run schema.sql to create the table")
     
     cur.close()
     conn.close()
     
 except Exception as e:
-    print(f"❌ Database connection failed: {e}")
+    print(f" Database connection failed: {e}")
     print("   Check PG_URI environment variable")
 print()
 
@@ -130,7 +130,7 @@ try:
     pending = redis_client.xpending(STREAM_KEY, CONSUMER_GROUP)
     if pending:
         pending_count = pending['pending']
-        print(f"⚠️  {pending_count} messages pending (in progress but not acknowledged)")
+        print(f"  {pending_count} messages pending (in progress but not acknowledged)")
         if pending_count > 0:
             print("   These messages might be stuck!")
             # Show details
@@ -143,9 +143,9 @@ try:
                 print(f"     Idle time: {p['time_since_delivered']}ms")
 except Exception as e:
     if 'NOGROUP' in str(e):
-        print("⚠️  Consumer group doesn't exist (will be created on first use)")
+        print("  Consumer group doesn't exist (will be created on first use)")
     else:
-        print(f"⚠️  Could not check pending: {e}")
+        print(f"  Could not check pending: {e}")
 print()
 
 # Summary
@@ -167,7 +167,7 @@ if issues:
     for i, issue in enumerate(issues, 1):
         print(f"{i}. {issue}")
 else:
-    print("✅ No obvious issues found")
+    print(" No obvious issues found")
 
 print()
 print("RECOMMENDED FIXES:")

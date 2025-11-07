@@ -157,7 +157,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>⚡ ConnectStorm</h1>
+        <h1>ConnectStorm</h1>
         <p class="subtitle">Upload your files to the distributed ingestion system</p>
         
         <div id="message" class="message"></div>
@@ -176,12 +176,12 @@
             <button type="submit">Upload File</button>
             
             <div class="loading">
-                <p>⏳ Uploading...</p>
+                <p>Uploading...</p>
             </div>
         </form>
         
         <div class="nav-links">
-            <a href="/dashboard">📊 View Dashboard</a>
+            <a href="/dashboard">View Dashboard</a>
         </div>
     </div>
     
@@ -213,20 +213,20 @@
                 
                 if (response.ok) {
                     messageDiv.className = 'message success';
-                    messageDiv.textContent = `✓ ${data.message || 'File uploaded successfully!'}`;
+                    messageDiv.textContent = `${data.message || 'File uploaded successfully!'}`;
                     messageDiv.style.display = 'block';
                     
                     // Reset form
                     form.reset();
                 } else {
                     messageDiv.className = 'message error';
-                    messageDiv.textContent = `✗ ${data.error || 'Upload failed'}`;
+                    messageDiv.textContent = `Error: ${data.error || 'Upload failed'}`;
                     messageDiv.style.display = 'block';
                 }
             } catch (error) {
                 loadingDiv.style.display = 'none';
                 messageDiv.className = 'message error';
-                messageDiv.textContent = `✗ Network error: ${error.message}`;
+                messageDiv.textContent = `Network error: ${error.message}`;
                 messageDiv.style.display = 'block';
             }
         });

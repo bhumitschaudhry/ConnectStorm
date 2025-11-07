@@ -49,10 +49,10 @@ def init_db_pool():
             maxconn=5,
             dsn=PG_URI
         )
-        print(f"✓ Database connection pool initialized")
+        print(f"Database connection pool initialized")
         return True
     except Exception as e:
-        print(f"✗ Failed to initialize connection pool: {e}")
+        print(f"Failed to initialize connection pool: {e}")
         return False
 
 
@@ -76,10 +76,10 @@ def init_consumer_group():
     """Initialize Redis consumer group if not exists."""
     try:
         redis_client.xgroup_create(STREAM_KEY, CONSUMER_GROUP, id='0', mkstream=True)
-        print(f"✓ Created consumer group '{CONSUMER_GROUP}'")
+        print(f"Created consumer group '{CONSUMER_GROUP}'")
     except redis.exceptions.ResponseError as e:
         if 'BUSYGROUP' in str(e):
-            print(f"✓ Consumer group '{CONSUMER_GROUP}' already exists")
+            print(f"Consumer group '{CONSUMER_GROUP}' already exists")
         else:
             raise
 
@@ -100,7 +100,7 @@ def parse_timestamp(ts_string):
             return dt
         return ts_string
     except Exception as e:
-        print(f"⚠ Failed to parse timestamp '{ts_string}': {e}, using current time")
+        print(f"Failed to parse timestamp '{ts_string}': {e}, using current time")
         return datetime.now(timezone.utc)
 
 
@@ -127,7 +127,7 @@ def process_message(message_data):
         if already_stored == 'true':
             # File is already in S3/R2, just return metadata for DB insert
             if not storage_url:
-                print(f"⚠ No storage URL provided")
+                print(f"No storage URL provided")
                 return 'skip', None
             
             metadata = {
@@ -147,7 +147,7 @@ def process_message(message_data):
             tmp_path = message_data.get('tmp_path')
             
             if not tmp_path or not os.path.exists(tmp_path):
-                print(f"⚠ File not found: {tmp_path} - skipping")
+                print(f"File not found: {tmp_path} - skipping")
                 return 'skip', None
             
             # Upload file to storage (old flow)
@@ -158,7 +158,7 @@ def process_message(message_data):
             try:
                 os.remove(tmp_path)
             except Exception as e:
-                print(f"⚠ Failed to delete temp file: {e}")
+                print(f"Failed to delete temp file: {e}")
             
             metadata = {
                 'event_time': event_time,
@@ -173,7 +173,7 @@ def process_message(message_data):
             return 'success', metadata
         
     except Exception as e:
-        print(f"✗ Error processing message: {e}")
+        print(f"Error processing message: {e}")
         return 'error', None
 
 
@@ -218,7 +218,7 @@ def batch_insert_to_db(records):
         
     except Exception as e:
         import traceback
-        print(f"✗ Batch insert error: {e}")
+        print(f"Batch insert error: {e}")
         print(f"   Traceback: {traceback.format_exc()}")
         if conn:
             conn.rollback()
@@ -235,7 +235,7 @@ def consume_batch():
             pending_info = redis_client.xpending(STREAM_KEY, CONSUMER_GROUP)
             if pending_info and pending_info.get('pending', 0) > 0:
                 pending_count = pending_info['pending']
-                print(f"📋 Found {pending_count} pending messages, attempting to retry...")
+                print(f"Found {pending_count} pending messages, attempting to retry...")
                 # Try to get pending messages for this consumer
                 # Note: xpending with start/end/count returns list of pending message details
                 try:
@@ -255,10 +255,10 @@ def consume_batch():
                                             if inserted > 0:
                                                 redis_client.xack(STREAM_KEY, CONSUMER_GROUP, claimed_msg_id)
                                                 redis_client.xdel(STREAM_KEY, claimed_msg_id)
-                                                print(f"✓ Retried and inserted: {metadata.get('filename', 'unknown')}")
+                                                print(f"Retried and inserted: {metadata.get('filename', 'unknown')}")
                 except Exception as claim_error:
                     # If claiming fails, continue with normal processing
-                    print(f"⚠ Could not claim pending messages: {claim_error}")
+                    print(f"Could not claim pending messages: {claim_error}")
         except Exception as e:
             # If pending check fails, continue with normal processing
             pass
@@ -291,7 +291,7 @@ def consume_batch():
                     message_ids_to_skip.append(message_id)
                 elif status == 'error':
                     # For errors, we'll leave the message pending for retry
-                    print(f"⚠ Message {message_id} failed processing, will retry later")
+                    print(f"Message {message_id} failed processing, will retry later")
         
         # Batch insert all successful records
         if successful_records:
@@ -304,10 +304,10 @@ def consume_batch():
                     redis_client.xdel(STREAM_KEY, msg_id)
                 
                 processed_count = inserted
-                print(f"✓ Batch: {processed_count} records inserted")
+                print(f"Batch: {processed_count} records inserted")
             else:
                 # Partial failure - don't ack any, let them retry
-                print(f"⚠ Partial failure: {inserted}/{len(successful_records)} inserted, will retry")
+                print(f"Partial failure: {inserted}/{len(successful_records)} inserted, will retry")
         
         # Acknowledge skipped messages
         for msg_id in message_ids_to_skip:
@@ -318,14 +318,14 @@ def consume_batch():
         
     except Exception as e:
         import traceback
-        print(f"✗ Error in consume_batch: {e}")
+        print(f"Error in consume_batch: {e}")
         print(f"   Traceback: {traceback.format_exc()}")
         return 0
 
 
 def run_consumer():
     """Main consumer loop."""
-    print(f"🚀 ConnectStorm Consumer (CLOUD VERSION)")
+    print(f"ConnectStorm Consumer (CLOUD VERSION)")
     print(f"   Consumer: {CONSUMER_NAME}")
     print(f"   Stream: {STREAM_KEY}")
     print(f"   Group: {CONSUMER_GROUP}")
@@ -334,13 +334,13 @@ def run_consumer():
     print()
     
     if not init_db_pool():
-        print("✗ Failed to initialize database pool")
+        print("Failed to initialize database pool")
         return
     
     init_consumer_group()
     
-    print(f"👂 Listening for messages...")
-    print(f"⚡ Optimized for distributed deployment (files in S3/R2)")
+    print(f"Listening for messages...")
+    print(f"Optimized for distributed deployment (files in S3/R2)")
     print()
     
     total_processed = 0
@@ -355,18 +355,18 @@ def run_consumer():
             if count > 0:
                 elapsed = time.time() - start_time
                 rate = total_processed / elapsed if elapsed > 0 else 0
-                print(f"📊 Total: {total_processed} | Rate: {rate:.2f}/sec")
+                print(f"Total: {total_processed} | Rate: {rate:.2f}/sec")
                 idle_cycles = 0
             else:
                 idle_cycles += 1
                 if idle_cycles % 60 == 0:
-                    print(f"💓 Listening... (~{idle_cycles * BLOCK_MS // 1000}s idle)")
+                    print(f"Listening... (~{idle_cycles * BLOCK_MS // 1000}s idle)")
             
         except KeyboardInterrupt:
-            print(f"\n⚠ Shutting down... Total: {total_processed}")
+            print(f"\nShutting down... Total: {total_processed}")
             break
         except Exception as e:
-            print(f"✗ Error: {e}")
+            print(f"Error: {e}")
             time.sleep(5)
     
     if db_pool:

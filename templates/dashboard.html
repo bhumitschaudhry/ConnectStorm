@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>File-Storm Dashboard</title>
+    <title>ConnectStorm Dashboard</title>
     <style>
         * {
             margin: 0;
@@ -152,7 +152,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>📊 File-Storm Dashboard</h1>
+            <h1>ConnectStorm Dashboard</h1>
             <p class="subtitle">
                 <span class="status-indicator"></span>
                 Real-time metrics updating every second
@@ -187,8 +187,8 @@
         </div>
         
         <div class="nav-links">
-            <a href="/upload">📤 Upload Files</a>
-            <a href="/">🏠 Home</a>
+            <a href="/upload">Upload Files</a>
+            <a href="/">Home</a>
         </div>
         
         <div class="last-update">
@@ -248,7 +248,7 @@
             } catch (error) {
                 console.error('Error fetching counts:', error);
                 const errorDiv = document.getElementById('errorMessage');
-                errorDiv.textContent = `⚠ Error: ${error.message}`;
+                errorDiv.textContent = `Error: ${error.message}`;
                 errorDiv.style.display = 'block';
             }
         }

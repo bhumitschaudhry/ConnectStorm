@@ -19,10 +19,10 @@ def check_env_var(name, required=True):
             display = value[:8] + '...' if len(value) > 8 else '***'
         else:
             display = value
-        print(f"  ✓ {name}: {display}")
+        print(f"   {name}: {display}")
         return True
     else:
-        status = "✗" if required else "⚠"
+        status = "ERROR" if required else "WARNING"
         print(f"  {status} {name}: Not set")
         return not required
 
@@ -32,23 +32,23 @@ def check_redis():
         import redis
         redis_url = os.getenv('REDIS_URL')
         if not redis_url:
-            print("  ✗ REDIS_URL not set")
+            print("   REDIS_URL not set")
             return False
         
         client = redis.from_url(redis_url, decode_responses=True)
         client.ping()
-        print("  ✓ Redis connection successful")
+        print("   Redis connection successful")
         
         # Check stream
         stream_len = client.xlen('filestorm:uploads')
-        print(f"  ✓ Redis stream length: {stream_len}")
+        print(f"   Redis stream length: {stream_len}")
         
         return True
     except ImportError:
-        print("  ✗ redis package not installed")
+        print("   redis package not installed")
         return False
     except Exception as e:
-        print(f"  ✗ Redis connection failed: {e}")
+        print(f"   Redis connection failed: {e}")
         return False
 
 def check_database():
@@ -57,7 +57,7 @@ def check_database():
         import psycopg2
         pg_uri = os.getenv('PG_URI')
         if not pg_uri:
-            print("  ✗ PG_URI not set")
+            print("   PG_URI not set")
             return False
         
         conn = psycopg2.connect(pg_uri)
@@ -66,16 +66,16 @@ def check_database():
         # Check connection
         cur.execute("SELECT version();")
         version = cur.fetchone()[0]
-        print(f"  ✓ PostgreSQL connection successful")
+        print(f"   PostgreSQL connection successful")
         print(f"    Version: {version[:50]}...")
         
         # Check TimescaleDB extension
         cur.execute("SELECT extname, extversion FROM pg_extension WHERE extname='timescaledb';")
         result = cur.fetchone()
         if result:
-            print(f"  ✓ TimescaleDB extension: v{result[1]}")
+            print(f"   TimescaleDB extension: v{result[1]}")
         else:
-            print("  ⚠ TimescaleDB extension not found")
+            print("   TimescaleDB extension not found")
         
         # Check table exists
         cur.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name='file_events');")
@@ -83,25 +83,25 @@ def check_database():
         if table_exists:
             cur.execute("SELECT COUNT(*) FROM file_events;")
             count = cur.fetchone()[0]
-            print(f"  ✓ file_events table exists ({count} records)")
+            print(f"   file_events table exists ({count} records)")
         else:
-            print("  ⚠ file_events table not found - run schema.sql")
+            print("   file_events table not found - run schema.sql")
         
         cur.close()
         conn.close()
         return True
         
     except ImportError:
-        print("  ✗ psycopg2 package not installed")
+        print("   psycopg2 package not installed")
         return False
     except Exception as e:
-        print(f"  ✗ Database connection failed: {e}")
+        print(f"   Database connection failed: {e}")
         return False
 
 def check_storage():
     """Check storage configuration."""
     storage_mode = os.getenv('STORAGE_MODE', 'local')
-    print(f"  ✓ Storage mode: {storage_mode}")
+    print(f"   Storage mode: {storage_mode}")
     
     if storage_mode == 's3':
         try:
@@ -113,7 +113,7 @@ def check_storage():
             s3_secret_key = os.getenv('S3_SECRET_KEY')
             
             if not all([s3_bucket, s3_access_key, s3_secret_key]):
-                print("  ✗ S3 credentials incomplete")
+                print("   S3 credentials incomplete")
                 return False
             
             # Try to connect
@@ -138,21 +138,21 @@ def check_storage():
             
             # Check bucket access
             client.head_bucket(Bucket=s3_bucket)
-            print(f"  ✓ S3 bucket '{s3_bucket}' accessible")
+            print(f"   S3 bucket '{s3_bucket}' accessible")
             return True
             
         except ImportError:
-            print("  ✗ boto3 package not installed")
+            print("   boto3 package not installed")
             return False
         except ClientError as e:
-            print(f"  ✗ S3 access failed: {e}")
+            print(f"   S3 access failed: {e}")
             return False
         except Exception as e:
-            print(f"  ✗ S3 configuration error: {e}")
+            print(f"   S3 configuration error: {e}")
             return False
     else:
         local_dir = os.getenv('LOCAL_STORAGE_DIR', '/tmp/filestorm_storage')
-        print(f"  ✓ Local storage directory: {local_dir}")
+        print(f"   Local storage directory: {local_dir}")
         return True
 
 def check_selenium():
@@ -161,28 +161,28 @@ def check_selenium():
         from selenium import webdriver
         from selenium.webdriver.chrome.options import Options
         
-        print("  ✓ Selenium package installed")
+        print("   Selenium package installed")
         
         # Check files directory
         files_dir = os.getenv('PRODUCER_FILES_DIR', 'files')
         if os.path.exists(files_dir):
             files = [f for f in os.listdir(files_dir) if os.path.isfile(os.path.join(files_dir, f))]
-            print(f"  ✓ Files directory exists ({len(files)} files)")
+            print(f"   Files directory exists ({len(files)} files)")
         else:
-            print(f"  ⚠ Files directory '{files_dir}' not found")
+            print(f"   Files directory '{files_dir}' not found")
         
         return True
         
     except ImportError:
-        print("  ✗ selenium package not installed")
+        print("   selenium package not installed")
         return False
     except Exception as e:
-        print(f"  ✗ Selenium check failed: {e}")
+        print(f"   Selenium check failed: {e}")
         return False
 
 def main():
     """Run all health checks."""
-    print("⚡ ConnectStorm Health Check")
+    print("ConnectStorm Health Check")
     print("=" * 60)
     print()
     
@@ -190,41 +190,41 @@ def main():
     results = {}
     
     # 1. Check Python packages
-    print("📦 Checking Python Packages:")
+    print("Checking Python Packages:")
     try:
         import flask
-        print(f"  ✓ Flask: {flask.__version__}")
+        print(f"   Flask: {flask.__version__}")
     except ImportError:
-        print("  ✗ Flask not installed")
+        print("   Flask not installed")
     
     try:
         import redis
-        print(f"  ✓ redis: {redis.__version__}")
+        print(f"   redis: {redis.__version__}")
     except ImportError:
-        print("  ✗ redis not installed")
+        print("   redis not installed")
     
     try:
         import psycopg2
-        print(f"  ✓ psycopg2: {psycopg2.__version__}")
+        print(f"   psycopg2: {psycopg2.__version__}")
     except ImportError:
-        print("  ✗ psycopg2 not installed")
+        print("   psycopg2 not installed")
     
     try:
         import boto3
-        print(f"  ✓ boto3: {boto3.__version__}")
+        print(f"   boto3: {boto3.__version__}")
     except ImportError:
-        print("  ✗ boto3 not installed")
+        print("   boto3 not installed")
     
     try:
         from selenium import webdriver
-        print("  ✓ selenium installed")
+        print("   selenium installed")
     except ImportError:
-        print("  ✗ selenium not installed")
+        print("   selenium not installed")
     
     print()
     
     # 2. Check environment variables
-    print("🔧 Checking Environment Variables:")
+    print("Checking Environment Variables:")
     check_env_var('FLASK_PORT', required=False)
     check_env_var('SECRET_KEY')
     check_env_var('REDIS_URL')
@@ -240,43 +240,43 @@ def main():
     print()
     
     # 3. Check Redis
-    print("🔴 Checking Redis:")
+    print("Checking Redis:")
     results['redis'] = check_redis()
     print()
     
     # 4. Check Database
-    print("🐘 Checking PostgreSQL/TimescaleDB:")
+    print("Checking PostgreSQL/TimescaleDB:")
     results['database'] = check_database()
     print()
     
     # 5. Check Storage
-    print("💾 Checking Storage:")
+    print("Checking Storage:")
     results['storage'] = check_storage()
     print()
     
     # 6. Check Selenium
-    print("🤖 Checking Selenium:")
+    print("Checking Selenium:")
     results['selenium'] = check_selenium()
     print()
     
     # Summary
     print("=" * 60)
-    print("📊 HEALTH CHECK SUMMARY")
+    print("HEALTH CHECK SUMMARY")
     print("=" * 60)
     
     all_passed = all(results.values())
     
     for component, status in results.items():
-        icon = "✓" if status else "✗"
+        icon = "PASS" if status else "FAIL"
         print(f"  {icon} {component.capitalize()}: {'PASS' if status else 'FAIL'}")
     
     print()
     
     if all_passed:
-        print("✅ All checks passed! System is ready to run.")
+        print("All checks passed! System is ready to run.")
         return 0
     else:
-        print("⚠️  Some checks failed. Please fix the issues above.")
+        print("Some checks failed. Please fix the issues above.")
         return 1
 
 if __name__ == '__main__':

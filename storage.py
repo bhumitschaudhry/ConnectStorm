@@ -82,14 +82,14 @@ def upload_to_s3(file_path, object_name):
             # Standard S3 URL
             url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{object_name}"
         
-        print(f"✓ Uploaded to S3: {url}")
+        print(f"Uploaded to S3: {url}")
         return url
         
     except ClientError as e:
-        print(f"✗ S3 upload error: {e}")
+        print(f"S3 upload error: {e}")
         raise
     except Exception as e:
-        print(f"✗ Unexpected error during S3 upload: {e}")
+        print(f"Unexpected error during S3 upload: {e}")
         raise
 
 
@@ -109,11 +109,11 @@ def upload_to_local(file_path, object_name):
         import shutil
         shutil.copy2(file_path, dest_path)
         
-        print(f"✓ Saved locally: {dest_path}")
+        print(f"Saved locally: {dest_path}")
         return dest_path
         
     except Exception as e:
-        print(f"✗ Local storage error: {e}")
+        print(f"Local storage error: {e}")
         raise
 
 

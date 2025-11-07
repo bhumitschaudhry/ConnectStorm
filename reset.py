@@ -81,14 +81,14 @@ def reset_redis():
                 if 'BUSYGROUP' not in str(e):
                     print(f"  Warning: Could not recreate consumer group: {e}")
             
-            print(f"  ✓ Redis stream cleared successfully")
+            print(f"  Redis stream cleared successfully")
         else:
             print(f"  Redis stream already empty (0 messages)")
         
         return True
         
     except Exception as e:
-        print(f"  ✗ Redis reset failed: {e}")
+        print(f"  Redis reset failed: {e}")
         return False
 
 
@@ -110,7 +110,7 @@ def reset_timescale():
             deleted = cur.rowcount
             
             conn.commit()
-            print(f"  ✓ TimescaleDB cleared: {deleted} records deleted")
+            print(f"  TimescaleDB cleared: {deleted} records deleted")
         else:
             print(f"  TimescaleDB already empty (0 records)")
         
@@ -119,7 +119,7 @@ def reset_timescale():
         return True
         
     except Exception as e:
-        print(f"  ✗ TimescaleDB reset failed: {e}")
+        print(f"  TimescaleDB reset failed: {e}")
         return False
 
 
@@ -129,7 +129,7 @@ def main():
     print("CONNECTSTORM RESET SCRIPT")
     print("=" * 70)
     print()
-    print("⚠️  WARNING: This will permanently delete:")
+    print("WARNING: This will permanently delete:")
     print("   - All messages from Redis stream")
     print("   - All records from TimescaleDB")
     print()
@@ -161,7 +161,7 @@ def main():
     total_items = counts['redis_stream'] + counts['timescale_records']
     
     if total_items == 0:
-        print("✓ All systems are already empty. Nothing to reset.")
+        print("All systems are already empty. Nothing to reset.")
         return
     
     # Confirmation
@@ -170,7 +170,7 @@ def main():
     confirm = input("Type 'RESET' to confirm deletion: ")
     
     if confirm != 'RESET':
-        print("\n❌ Reset cancelled.")
+        print("\nReset cancelled.")
         return
     
     print()
@@ -211,7 +211,7 @@ def main():
     
     if redis_success and timescale_success:
         if final_counts['redis_stream'] == 0 and final_counts['timescale_records'] == 0:
-            print("✓ SUCCESS: All systems reset successfully!")
+            print("SUCCESS: All systems reset successfully!")
             print()
             print("You can now:")
             print("  1. Start fresh with new uploads")
@@ -219,9 +219,9 @@ def main():
             print("  3. Run: python consumer.py")
             print("  4. Upload files via http://localhost:8080/upload")
         else:
-            print("⚠️  WARNING: Systems not completely empty after reset")
+            print("WARNING: Systems not completely empty after reset")
     else:
-        print("❌ ERROR: Reset incomplete. Check error messages above.")
+        print("ERROR: Reset incomplete. Check error messages above.")
     
     print("=" * 70)
 
@@ -230,9 +230,9 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\n❌ Reset cancelled by user")
+        print("\n\nReset cancelled by user")
         sys.exit(1)
     except Exception as e:
-        print(f"\n❌ Unexpected error: {e}")
+        print(f"\nUnexpected error: {e}")
         sys.exit(1)
 

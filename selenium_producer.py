@@ -84,7 +84,7 @@ def get_chrome_driver():
         driver.set_page_load_timeout(30)
         return driver
     except Exception as e:
-        print(f"✗ Failed to create Chrome driver: {e}")
+        print(f" Failed to create Chrome driver: {e}")
         print("\nTroubleshooting:")
         print("  1. Make sure Google Chrome is installed")
         print("  2. Check that Chrome version matches ChromeDriver")
@@ -100,14 +100,14 @@ def get_available_files():
     files_dir = Path(PRODUCER_FILES_DIR)
     
     if not files_dir.exists():
-        print(f"⚠ Files directory '{PRODUCER_FILES_DIR}' does not exist")
+        print(f" Files directory '{PRODUCER_FILES_DIR}' does not exist")
         return []
     
     # Get all files (not directories)
     files = [f for f in files_dir.iterdir() if f.is_file()]
     
     if not files:
-        print(f"⚠ No files found in '{PRODUCER_FILES_DIR}'")
+        print(f" No files found in '{PRODUCER_FILES_DIR}'")
     
     return files
 
@@ -168,7 +168,7 @@ def upload_file_selenium(user_id, file_path, attempt=1):
         return True
         
     except Exception as e:
-        print(f"✗ [User {user_id}] Upload failed (attempt {attempt}): {e}")
+        print(f" [User {user_id}] Upload failed (attempt {attempt}): {e}")
         return False
         
     finally:
@@ -180,7 +180,7 @@ def user_upload_session(user_id, files, num_uploads):
     """
     Simulates a user session uploading multiple files.
     """
-    print(f"🚀 [User {user_id}] Starting session ({num_uploads} uploads)")
+    print(f" [User {user_id}] Starting session ({num_uploads} uploads)")
     
     successful_uploads = 0
     failed_uploads = 0
@@ -188,7 +188,7 @@ def user_upload_session(user_id, files, num_uploads):
     for i in range(num_uploads):
         # Select a random file
         if not files:
-            print(f"⚠ [User {user_id}] No files available to upload")
+            print(f" [User {user_id}] No files available to upload")
             break
         
         file_to_upload = random.choice(files)
@@ -207,7 +207,7 @@ def user_upload_session(user_id, files, num_uploads):
             print(f"[User {user_id}] Waiting {delay:.1f}s before next upload...")
             time.sleep(delay)
     
-    print(f"✓ [User {user_id}] Session complete: {successful_uploads} successful, {failed_uploads} failed")
+    print(f" [User {user_id}] Session complete: {successful_uploads} successful, {failed_uploads} failed")
     
     return {
         'user_id': user_id,
@@ -221,7 +221,7 @@ def run_producer():
     Main producer function.
     Spawns multiple concurrent users uploading files.
     """
-    print("🚀 ConnectStorm Selenium Producer")
+    print(" ConnectStorm Selenium Producer")
     print(f"   Target URL: {PRODUCER_TARGET_BASE_URL}")
     print(f"   Files Directory: {PRODUCER_FILES_DIR}")
     print(f"   Concurrent Users: {PRODUCER_USERS}")
@@ -233,10 +233,10 @@ def run_producer():
     files = get_available_files()
     
     if not files:
-        print("✗ No files found to upload. Please add files to the 'files/' directory.")
+        print(" No files found to upload. Please add files to the 'files/' directory.")
         return
     
-    print(f"✓ Found {len(files)} files to upload:")
+    print(f" Found {len(files)} files to upload:")
     for f in files:
         print(f"  - {f.name} ({f.stat().st_size} bytes)")
     print()
@@ -258,7 +258,7 @@ def run_producer():
                 result = future.result()
                 results.append(result)
             except Exception as e:
-                print(f"✗ User session error: {e}")
+                print(f" User session error: {e}")
     
     # Summary
     elapsed_time = time.time() - start_time
@@ -267,7 +267,7 @@ def run_producer():
     
     print()
     print("=" * 60)
-    print("📊 PRODUCER SUMMARY")
+    print("PRODUCER SUMMARY")
     print("=" * 60)
     print(f"Total Users: {PRODUCER_USERS}")
     print(f"Successful Uploads: {total_successful}")
@@ -281,8 +281,8 @@ if __name__ == '__main__':
     try:
         run_producer()
     except KeyboardInterrupt:
-        print("\n⚠ Producer interrupted by user")
+        print("\n Producer interrupted by user")
     except Exception as e:
-        print(f"✗ Producer error: {e}")
+        print(f" Producer error: {e}")
         sys.exit(1)
 
