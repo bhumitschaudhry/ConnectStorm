@@ -74,10 +74,19 @@ def init_db_pool():
             maxconn=5,
             dsn=PG_URI
         )
-        print(f"✓ Database connection pool initialized")
+        # Test connection
+        test_conn = db_pool.getconn()
+        test_cur = test_conn.cursor()
+        test_cur.execute("SELECT 1")
+        test_cur.close()
+        db_pool.putconn(test_conn)
+        print(f"✓ Database connection pool initialized and tested")
         return True
     except Exception as e:
         print(f"✗ Failed to initialize connection pool: {e}")
+        import traceback
+        print(f"   Traceback: {traceback.format_exc()}")
+        print(f"   Check PG_URI: {PG_URI[:50]}..." if len(PG_URI) > 50 else f"   Check PG_URI: {PG_URI}")
         return False
 
 
@@ -101,12 +110,14 @@ def init_redis_stream():
     """Initialize Redis Stream and consumer group if not exists."""
     try:
         redis_client.xgroup_create(STREAM_KEY, CONSUMER_GROUP, id='0', mkstream=True)
-        print(f"✓ Created consumer group '{CONSUMER_GROUP}'")
+        print(f"✓ Created consumer group '{CONSUMER_GROUP}' for stream '{STREAM_KEY}'")
     except redis.exceptions.ResponseError as e:
         if 'BUSYGROUP' in str(e):
             print(f"✓ Consumer group '{CONSUMER_GROUP}' already exists")
         else:
-            print(f"⚠ Redis error: {e}")
+            print(f"⚠ Redis error creating consumer group: {e}")
+            import traceback
+            print(f"   Traceback: {traceback.format_exc()}")
 
 
 # ============================================================================
@@ -200,13 +211,19 @@ def batch_insert_to_db(records):
         cur.close()
         return_db_connection(conn)
         
+        print(f"✓ Batch insert: {inserted_count} records inserted to database")
         return inserted_count
         
     except Exception as e:
+        import traceback
         print(f"✗ Batch insert error: {e}")
+        print(f"   Traceback: {traceback.format_exc()}")
         if conn:
-            conn.rollback()
-            return_db_connection(conn)
+            try:
+                conn.rollback()
+                return_db_connection(conn)
+            except:
+                pass
         return 0
 
 
@@ -228,6 +245,8 @@ def consume_batch():
         message_ids_to_ack = []
         message_ids_to_skip = []
         
+        print(f"📥 Consumer: Processing {sum(len(msgs) for _, msgs in messages)} messages")
+        
         for stream_name, stream_messages in messages:
             for message_id, message_data in stream_messages:
                 status, metadata = process_message(message_data)
@@ -237,10 +256,13 @@ def consume_batch():
                     message_ids_to_ack.append(message_id)
                 elif status == 'skip':
                     message_ids_to_skip.append(message_id)
+                elif status == 'error':
+                    print(f"⚠️  Message {message_id} failed to process")
         
         # Batch insert
         processed_count = 0
         if successful_records:
+            print(f"📊 Consumer: Attempting to insert {len(successful_records)} records to database")
             inserted = batch_insert_to_db(successful_records)
             
             if inserted > 0:
@@ -248,16 +270,35 @@ def consume_batch():
                     redis_client.xack(STREAM_KEY, CONSUMER_GROUP, msg_id)
                     redis_client.xdel(STREAM_KEY, msg_id)
                 processed_count = inserted
+                print(f"✓ Consumer: Acknowledged {processed_count} messages")
+            else:
+                print(f"✗ Consumer: Database insert failed! Records not inserted.")
+                # Don't acknowledge if insert failed
+        else:
+            print("⚠️  Consumer: No successful records to insert")
         
         # Skip failed messages
-        for msg_id in message_ids_to_skip:
-            redis_client.xack(STREAM_KEY, CONSUMER_GROUP, msg_id)
-            redis_client.xdel(STREAM_KEY, msg_id)
+        if message_ids_to_skip:
+            print(f"⊘ Consumer: Skipping {len(message_ids_to_skip)} messages")
+            for msg_id in message_ids_to_skip:
+                redis_client.xack(STREAM_KEY, CONSUMER_GROUP, msg_id)
+                redis_client.xdel(STREAM_KEY, msg_id)
         
         return processed_count
         
+    except redis.exceptions.ResponseError as e:
+        if 'NOGROUP' in str(e):
+            print(f"⚠️  Consumer group not found, initializing...")
+            init_redis_stream()
+        else:
+            print(f"✗ Consumer Redis error: {e}")
+            import traceback
+            print(f"   Traceback: {traceback.format_exc()}")
+        return 0
     except Exception as e:
         print(f"✗ Consumer error: {e}")
+        import traceback
+        print(f"   Traceback: {traceback.format_exc()}")
         return 0
 
 
@@ -267,7 +308,10 @@ def consumer_worker():
     
     print(f"🚀 Consumer worker started in background")
     print(f"   Stream: {STREAM_KEY}")
+    print(f"   Consumer Group: {CONSUMER_GROUP}")
+    print(f"   Consumer Name: {CONSUMER_NAME}")
     print(f"   Batch Size: {BATCH_SIZE}")
+    print(f"   Block Time: {BLOCK_MS}ms")
     
     total_processed = 0
     idle_cycles = 0
@@ -285,8 +329,13 @@ def consumer_worker():
                 if idle_cycles % 300 == 0:  # Every 5 minutes
                     print(f"💓 Consumer idle: {idle_cycles * BLOCK_MS // 1000}s")
             
+        except KeyboardInterrupt:
+            print("⚠ Consumer worker interrupted")
+            break
         except Exception as e:
-            print(f"✗ Consumer error: {e}")
+            print(f"✗ Consumer worker error: {e}")
+            import traceback
+            print(f"   Traceback: {traceback.format_exc()}")
             time.sleep(5)
     
     print("⚠ Consumer worker stopped")
@@ -482,21 +531,38 @@ if __name__ == '__main__':
     print("CONNECTSTORM (COMBINED APP + CONSUMER)")
     print("=" * 70)
     print(f"Storage mode: {STORAGE_MODE}")
+    print(f"Consumer enabled: {ENABLE_CONSUMER}")
+    print()
     
     if STORAGE_MODE == 'local':
         print("⚠ WARNING: local storage won't work with distributed deployment!")
+        print()
     
     # Setup database and Redis
-    init_db_pool()
+    print("Initializing database...")
+    if not init_db_pool():
+        print("⚠ WARNING: Database pool initialization failed!")
+        print("   Consumer may not work properly")
+        print()
+    
+    print("Initializing Redis stream...")
     init_redis_stream()
+    print()
     
     # Start consumer in background
-    start_consumer()
+    if ENABLE_CONSUMER:
+        print("Starting consumer worker...")
+        start_consumer()
+    else:
+        print("⚠ Consumer is DISABLED!")
+        print("   Set ENABLE_CONSUMER=true to enable consumer")
+    print()
     
     # Run Flask
-    port = int(os.getenv('FLASK_PORT', 8080))
-    print(f"\n🌐 Starting Flask on port {port}...")
+    port = int(os.getenv('PORT', os.getenv('FLASK_PORT', 8080)))
+    print(f"🌐 Starting Flask on port {port}...")
     print("=" * 70)
+    print()
     
     app.run(host='0.0.0.0', port=port, debug=False)  # debug=False for production
 
