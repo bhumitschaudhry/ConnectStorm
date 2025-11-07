@@ -165,7 +165,7 @@ def run_producer():
     total_failed = sum(r['failed'] for r in results)
     print()
     print("=" * 60)
-    print("PRODUCER SUMMARY")
+    print("STRESS TEST SUMMARY")
     print("=" * 60)
     print(f"Total Users: {PRODUCER_USERS}")
     print(f"Successful Uploads: {total_successful}")
