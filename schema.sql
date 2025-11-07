@@ -35,13 +35,14 @@ CREATE INDEX IF NOT EXISTS idx_file_events_filename ON file_events (filename, ev
 
 -- Unique constraint on Redis message ID to prevent duplicate processing
 -- TimescaleDB requires the partitioning column (event_time) in unique indexes
--- Drop the old index if it exists (in case it was created with different columns)
+-- Drop the old indexes if they exist (in case they were created with different columns)
 DROP INDEX IF EXISTS idx_file_events_unique_upload;
 DROP INDEX IF EXISTS idx_file_events_redis_message_id;
 -- Create unique index with event_time (required by TimescaleDB) and redis_message_id
 -- Since redis_message_id is already unique per message, this effectively prevents duplicates
+-- Note: We remove the WHERE clause to make it work properly with ON CONFLICT
 CREATE UNIQUE INDEX IF NOT EXISTS idx_file_events_redis_message_id 
-ON file_events (redis_message_id, event_time) WHERE redis_message_id IS NOT NULL;
+ON file_events (redis_message_id, event_time);
 CREATE MATERIALIZED VIEW IF NOT EXISTS file_events_hourly
 WITH (timescaledb.continuous) AS
 SELECT

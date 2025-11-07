@@ -201,25 +201,71 @@ def batch_insert_to_db(records):
         
         cur = conn.cursor()
         
-        # Use ON CONFLICT to prevent duplicate inserts based on Redis message ID
-        # This prevents the same Redis message from being processed multiple times
-        # Note: TimescaleDB requires event_time in unique indexes, so we use (redis_message_id, event_time)
-        insert_query = """
-            INSERT INTO file_events (
-                event_time, operation, filename, file_size, 
-                mime_type, storage_url, uploader_id, redis_message_id
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (redis_message_id, event_time) DO NOTHING
-        """
+        # First, check which records already exist (application-level duplicate check)
+        # This helps even if the unique index doesn't exist yet
+        message_ids = [r.get('redis_message_id') for r in records if r.get('redis_message_id')]
+        existing_ids = set()
+        
+        if message_ids:
+            try:
+                # Check which message IDs already exist in the database
+                placeholders = ','.join(['%s'] * len(message_ids))
+                check_query = f"""
+                    SELECT redis_message_id 
+                    FROM file_events 
+                    WHERE redis_message_id IN ({placeholders})
+                """
+                cur.execute(check_query, message_ids)
+                existing_ids = {row[0] for row in cur.fetchall() if row[0]}
+            except Exception as check_error:
+                # If column doesn't exist yet, or other error, just continue
+                print(f"Note: Could not check for existing records: {check_error}")
+                existing_ids = set()
+        
+        # Filter out records that already exist
+        new_records = [
+            r for r in records 
+            if not r.get('redis_message_id') or r.get('redis_message_id') not in existing_ids
+        ]
+        
+        if not new_records:
+            print(f"All {len(records)} records already exist in database (duplicates skipped)")
+            cur.close()
+            return_db_connection(conn)
+            return len(records)  # Return count as if inserted (they're already there)
         
         data_tuples = [
             (r['event_time'], r['operation'], r['filename'], 
              r['file_size'], r['mime_type'], r['storage_url'], r['uploader_id'], r.get('redis_message_id'))
-            for r in records
+            for r in new_records
         ]
         
-        print(f"Batch insert: Attempting to insert {len(data_tuples)} records...")
-        cur.executemany(insert_query, data_tuples)
+        print(f"Batch insert: Attempting to insert {len(data_tuples)} new records (skipped {len(records) - len(new_records)} duplicates)...")
+        
+        # Try with ON CONFLICT first (if index exists), otherwise fall back to simple insert
+        # Use ON CONFLICT to prevent duplicate inserts based on Redis message ID
+        # This prevents the same Redis message from being processed multiple times
+        # Note: TimescaleDB requires event_time in unique indexes, so we use (redis_message_id, event_time)
+        try:
+            insert_query_with_conflict = """
+                INSERT INTO file_events (
+                    event_time, operation, filename, file_size, 
+                    mime_type, storage_url, uploader_id, redis_message_id
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (redis_message_id, event_time) DO NOTHING
+            """
+            cur.executemany(insert_query_with_conflict, data_tuples)
+        except (psycopg2.errors.InvalidColumnReference, psycopg2.errors.UndefinedTable) as e:
+            # Index doesn't exist yet, use simple insert (we already filtered duplicates at app level)
+            print(f"Unique index not found ({type(e).__name__}), using simple insert (duplicates already filtered)")
+            insert_query_simple = """
+                INSERT INTO file_events (
+                    event_time, operation, filename, file_size, 
+                    mime_type, storage_url, uploader_id, redis_message_id
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            cur.executemany(insert_query_simple, data_tuples)
+        
         conn.commit()
         
         inserted_count = cur.rowcount
