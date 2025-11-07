@@ -1,0 +1,154 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+.python-version
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+*.lnk
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Temporary Files
+/tmp/
+*.tmp
+*.temp
+/files/*.tmp
+.cache/
+
+# Uploaded Files (if storing locally)
+/uploads/
+/filestorm_uploads/
+/filestorm_storage/
+/files/*.pdf
+/files/*.docx
+/files/*.xlsx
+/files/*.zip
+
+# Keep example files
+!/files/sample*.txt
+!/files/README.txt
+
+# Selenium
+geckodriver.log
+chromedriver.log
+geckodriver
+geckodriver.exe
+chromedriver
+chromedriver.exe
+msedgedriver
+msedgedriver.exe
+firefox_profile/
+chrome_profile/
+*.crdownload
+screenshots/
+selenium_screenshots/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+nosetests.xml
+test-results/
+junit.xml
+
+# Type Checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Kafka & Zookeeper (if running locally)
+kafka-logs/
+zookeeper/
+data/kafka/
+data/zookeeper/
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# Backups
+*.bak
+*.backup
+*.old
+*.orig
+
+# Large files
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.iso
+*.tar
+*.tar.gz
+*.tgz
+

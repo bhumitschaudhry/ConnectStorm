@@ -1,0 +1,23 @@
+{
+  "system": "File-Storm",
+  "version": "1.0.0",
+  "components": [
+    "Flask Web Application",
+    "Redis Streams Queue",
+    "Consumer Worker",
+    "TimescaleDB Storage",
+    "S3/R2 Object Storage",
+    "Selenium Producer"
+  ],
+  "deployment": {
+    "platform": "Render",
+    "tier": "Free",
+    "services": 3
+  },
+  "test_data": {
+    "purpose": "Sample JSON file for upload testing",
+    "size": "small",
+    "type": "application/json"
+  }
+}
+

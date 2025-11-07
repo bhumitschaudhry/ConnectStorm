@@ -1,0 +1,13 @@
+Sample File #2 for File-Storm System
+
+This file will be uploaded by the Selenium producer to simulate real user behavior.
+
+Features tested:
+✓ File upload via web form
+✓ Redis Stream queueing
+✓ Consumer processing
+✓ S3/R2 storage
+✓ TimescaleDB insertion
+
+Status: Ready for testing
+

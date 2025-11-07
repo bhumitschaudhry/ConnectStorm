@@ -1,0 +1,165 @@
+<!doctype html>
+<html>
+<head>
+  <title>Dashboard</title>
+  <style>
+    body{
+        font-family: Arial, sans-serif; 
+        padding: 2rem; 
+        margin: 0; 
+        min-height: 100vh; 
+        display: flex; 
+        flex-direction: column;
+      }
+    .card{
+        border-radius:8px;
+        padding:1rem;
+        margin:1rem 0;
+        box-shadow:0 2px 8px rgba(0,0,0,0.08); 
+        background: white;
+      }
+    button{
+        padding:0.5rem 1rem; 
+        margin: 0.25rem;
+      }
+    #timer-container{position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #2c3e50, #34495e); color: white; padding: 1.5rem 2.5rem; border-radius: 15px; box-shadow: 0 8px 25px rgba(0,0,0,0.3); z-index: 1000; backdrop-filter: blur(10px);}
+     #timer{font-size: 2.5rem; font-weight: bold; font-family: 'Courier New', monospace; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);}
+     .timer-controls{
+        display: flex; 
+        justify-content: center; 
+        gap: 0.5rem; 
+        margin-top: 0.75rem;
+      }
+     .timer-controls button{
+        background: rgba(255,255,255,0.2); 
+        color: white; 
+        border: 1px solid rgba(255,255,255,0.3); 
+        border-radius: 8px; 
+        padding: 0.5rem 1rem; 
+        cursor: pointer; 
+        transition: all 0.3s ease;
+      }
+     .timer-controls button:hover{
+        background: rgba(255,255,255,0.3); 
+        transform: translateY(-2px);
+      }
+     .status-indicator{
+        display: inline-block; 
+        width: 12px; 
+        height: 12px; 
+        border-radius: 50%; 
+        margin-right: 8px; 
+        animation: pulse 2s infinite;
+      }
+     .status-active{
+        background: #4CAF50;
+      }
+     .status-idle{
+        background: #FFC107;
+      }
+     @keyframes pulse{0%{opacity: 1;}50%{opacity: 0.5;}100%{opacity: 1;}}
+    .main-content{
+      flex: 1; 
+      padding-bottom: 100px;
+    }
+    h1{
+      color: #333; 
+      text-align: center; 
+      margin-bottom: 2rem;
+    }
+    .stats-grid{
+      display: grid; 
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
+      gap: 1rem; margin-bottom: 2rem;
+    }
+    .stat-card{
+      background: linear-gradient(90deg, #00d2ff 0%, #3a47d5 100%); 
+      color: white; 
+      text-align: center;
+    }
+    .stat-number{
+      font-size: 2.5rem; 
+      font-weight: bold; 
+      margin: 0.5rem 0;
+    }
+    .stat-label{
+      font-size: 1rem; 
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div class="main-content">
+    <h1>Dashboard</h1>
+    <div class="stats-grid">
+      <div class="card stat-card">
+        <div class="stat-label"><span id="redis-status" class="status-indicator status-idle"></span>Redis Queue</div>
+        <div class="stat-number" id="redis-count">...</div>
+        <div class="stat-label">Events Waiting</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-label"><span id="db-status" class="status-indicator status-idle"></span>TimescaleDB</div>
+        <div class="stat-number" id="ts-count">...</div>
+        <div class="stat-label">Events Stored</div>
+      </div>
+    </div>
+  </div>
+  <div id="timer-container">
+    <div id="timer">00:00:00</div>
+  </div>
+<script>
+let timerInterval = null;
+let startTs = null;
+let elapsed = 0;
+let autoStartEnabled = true;
+let hasStarted = false;
+let lastRedisCount = 0;
+let lastDbCount = 0;
+function updateCounts(){
+  fetch('/counts').then(r=>r.json()).then(j=>{
+    document.getElementById('redis-count').innerText = j.redis;
+    document.getElementById('ts-count').innerText = j.timescale;
+    const redisStatus = document.getElementById('redis-status');
+    const dbStatus = document.getElementById('db-status');
+    if (j.redis !== lastRedisCount || j.redis > 0) {
+      redisStatus.className = 'status-indicator status-active';
+    } else {
+      redisStatus.className = 'status-indicator status-idle';
+    }
+    lastRedisCount = j.redis;
+    if (j.timescale > lastDbCount) {
+      dbStatus.className = 'status-indicator status-active';
+    } else {
+      dbStatus.className = 'status-indicator status-idle';
+    }
+    lastDbCount = j.timescale;
+    if (autoStartEnabled && !hasStarted && j.redis > 0) {
+      hasStarted = true;
+      startTimer();
+    }
+  })
+}
+setInterval(updateCounts, 1000);
+updateCounts();
+function format(ms){
+  let s = Math.floor(ms/1000);
+  let h = Math.floor(s/3600); s%=3600;
+  let m = Math.floor(s/60); s%=60;
+  return [h,m,s].map(x=>String(x).padStart(2,'0')).join(':');
+}
+function startTimer(){
+  if(timerInterval) return;
+  startTs = Date.now() - elapsed;
+  timerInterval = setInterval(()=>{
+    elapsed = Date.now() - startTs;
+    document.getElementById('timer').innerText = format(elapsed);
+  }, 200);
+}
+function stopTimer(){
+  if(!timerInterval) return;
+  clearInterval(timerInterval); timerInterval=null;
+}
+function resetTimer(){ stopTimer(); elapsed=0; document.getElementById('timer').innerText='00:00:00'; }
+</script>
+</body>
+</html>

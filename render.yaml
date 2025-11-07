@@ -1,0 +1,92 @@
+services:
+  # Flask Web Application
+  - type: web
+    name: connectstorm-web
+    env: python
+    region: singapore
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 3 --threads 2 --timeout 90
+    healthCheckPath: /health
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_PORT
+        value: 8080
+      - key: SECRET_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: PG_URI
+        sync: false
+      - key: STORAGE_MODE
+        value: s3
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      - key: S3_PUBLIC_BASE_URL
+        sync: false
+
+  # Consumer Worker
+  - type: worker
+    name: connectstorm-consumer
+    env: python
+    region: singapore
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: python consumer.py
+    envVars:
+      - key: REDIS_URL
+        sync: false
+      - key: PG_URI
+        sync: false
+      - key: STORAGE_MODE
+        value: s3
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      - key: S3_PUBLIC_BASE_URL
+        sync: false
+      - key: CONSUMER_BATCH_SIZE
+        value: 20
+      - key: CONSUMER_BLOCK_MS
+        value: 3000
+
+  # Selenium Worker
+  - type: worker
+    name: connectstorm-producer
+    env: python
+    region: singapore
+    plan: starter
+    buildCommand: |
+      apt-get update && apt-get install -y wget gnupg unzip curl
+      wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
+      echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list
+      apt-get update && apt-get install -y google-chrome-stable
+      pip install -r requirements.txt
+    startCommand: python selenium_producer.py
+    envVars:
+      - key: PRODUCER_TARGET_BASE_URL
+        sync: false
+      - key: PRODUCER_FILES_DIR
+        value: files
+      - key: PRODUCER_USERS
+        value: 5
+      - key: PRODUCER_REPEATS
+        value: 2
+      - key: PRODUCER_HEADLESS
+        value: true

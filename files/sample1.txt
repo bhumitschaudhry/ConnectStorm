@@ -1,0 +1,10 @@
+This is a sample text file for File-Storm testing.
+
+File-Storm is a distributed file ingestion system that demonstrates:
+- Redis Streams for queue processing
+- TimescaleDB for time-series data
+- S3/R2 for object storage
+- Selenium for automated testing
+
+Upload Date: 2025-11-07
+
